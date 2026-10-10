@@ -362,7 +362,12 @@
   }
   function controlLabels(element){return [element?.getAttribute?.('aria-label'),element?.getAttribute?.('title'),element?.value,element?.innerText,element?.textContent].map(value=>String(value||'').replace(/\s+/g,' ').trim()).filter(Boolean);}
   function taskSuccessPromptVisible(){return [...document.querySelectorAll('[role="dialog"],[role="alertdialog"],[aria-modal="true"],[role="heading"],h1,h2,h3,h4,p')].some(element=>visible(element)&&isTaskSuccessText(`${element.getAttribute?.('aria-label')||''} ${element.textContent||''}`));}
+  /* 页面性能：waitForReply/clickContinueWork 每个 tick 都调用本函数（全页按钮+容器扫描），
+     同一拍内复用 250ms 缓存结果即可——domTick 的最小复查间隔就是 250ms，语义不变。 */
   function taskSuccessUi(){
+    return cachedRead('taskSuccessUi',250,taskSuccessUiCompute);
+  }
+  function taskSuccessUiCompute(){
     const controls=[...document.querySelectorAll('button,[role="button"],[data-slot="button"],[tabindex]:not([tabindex="-1"]),input[type="button"],input[type="submit"]')].filter(element=>visible(element)&&!element.disabled&&element.getAttribute('aria-disabled')!=='true'&&controlLabels(element).some(isContinueWorkText));
     const unique=controls.filter((element,index)=>!controls.some((other,otherIndex)=>otherIndex!==index&&element.contains(other)));
     const contextual=unique.map(control=>{
