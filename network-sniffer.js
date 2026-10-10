@@ -86,7 +86,7 @@
   function looksLikePublicRunToken(token) {
     try {
       const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-      const payload = JSON.parse(decodeURIComponent(escape(atob(part))));
+      const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(part), character => character.charCodeAt(0))));
       return /run|trace|trigger|public|otel/i.test(JSON.stringify(payload));
     } catch { return false; }
   }

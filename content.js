@@ -983,10 +983,7 @@
      保证 transcriptText 读到完整上下文，运行结束后自动恢复折叠状态。 */
   const FOLD_KEEP=3;let foldOn=false,foldApplied=new WeakSet(),lastResultsSignature='';const toolButtons=[];
   function transcriptRoot(){
-    const logs=[...document.querySelectorAll('[role="log"]')].filter(visible).sort((left,right)=>(right.innerText||'').length-(left.innerText||'').length);
-    if(logs.length)return logs[0];
-    const main=[...document.querySelectorAll('main')].filter(visible).sort((left,right)=>(right.innerText||'').length-(left.innerText||'').length)[0];
-    return main||null;
+    return largestVisible('[role="log"]')||largestVisible('main')||null;
   }
   function chatScroller(){
     let node=transcriptRoot();
