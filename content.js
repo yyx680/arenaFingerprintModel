@@ -1071,7 +1071,10 @@
     drawSceneChannel.addEventListener('change',()=>void savePrefs({sceneChannel:!!drawSceneChannel.checked}));
     box.append(head,body,compact);root.append(style,box);document.documentElement.append(host);paint();
   }
-  function paint(){
+  /* v2.9.x 页面性能：把同一拍内的多次 paint() 调用合并为一次渲染，避免重复强制重排（HUD 只面向本机显示）。 */
+  let paintQueued=false;
+  function paint(){if(paintQueued)return;paintQueued=true;queueMicrotask(()=>{paintQueued=false;renderHud();});}
+  function renderHud(){
     if(!agentPage()){if(host)host.hidden=true;return;}if(!host?.isConnected)createHud();host.hidden=false;
     const body=root.querySelector('.body'),head=root.querySelector('.head'),compact=root.querySelector('.compact');
     const state=publicStatus(),samples=state.samples||0,busy=state.running;

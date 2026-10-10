@@ -95,6 +95,8 @@
   function scanText(text, where, url) {
     const source = String(text || '');
     if (!source) return;
+    // 页面性能：正文里不含任何可能命中的线索（model 字段 / JWT 前缀 / run_ id）时直接返回，跳过大请求体上的三次正则扫描。
+    if (source.indexOf('model') < 0 && source.indexOf('eyJ') < 0 && source.indexOf('run_') < 0) return;
     const jwt = source.match(/\beyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/);
     if (jwt && looksLikePublicRunToken(jwt[0])) pushToken(jwt[0], url, {via: where + ':jwt-body'});
     const re = /"(model[A-Za-z_]{0,12})"\s*:\s*"([^"]{1,80})"/g;
