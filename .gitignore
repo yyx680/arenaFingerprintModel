@@ -1,0 +1,11 @@
+# 依赖
+node_modules/
+
+# 发布产物与历史备份（历史版本 .zip 统一归档到 dist/）
+dist/
+*.zip
+_backup-*/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db

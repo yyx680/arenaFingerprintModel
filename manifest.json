@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "Arena Model Probe",
+  "version": "2.9.25",
+  "author": "Vodka",
+  "description": "在 Arena Agent 中自动发送数字指纹探针、识别模型并自动改名；支持连续自动抽卡与每日额度查询。含网络轨迹直读、流式节奏与本机分环境建档；识别门槛按模型自举标定。",
+  "minimum_chrome_version": "118",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "webRequest"
+  ],
+  "optional_permissions": [
+    "debugger"
+  ],
+  "host_permissions": [
+    "https://arena.ai/*",
+    "https://api.trigger.dev/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://whatsmyllm.com https://arena.ai https://api.trigger.dev"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Arena Model Probe"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://arena.ai/*"
+      ],
+      "js": [
+        "network-sniffer.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://arena.ai/*"
+      ],
+      "js": [
+        "probe-runtime.js",
+        "text-channel.js",
+        "conversation-rename.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

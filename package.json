@@ -1,0 +1,9 @@
+{
+  "name": "arena-model-probe-standalone",
+  "private": true,
+  "version": "2.9.25",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}
