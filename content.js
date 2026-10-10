@@ -61,7 +61,10 @@
   const modeReady=()=>combos().some(isWorkMode);
   const battleMode=()=>combos().some(element=>/battle|对战|匿名/i.test(String(element?.textContent||''))); // Battle（匿名对战）模式下组合框回显不含 Agent/Work
   const isNewChatPath=path=>/^\/(?:(?:agent|work|code|text|image|video|search)\/?)?$/.test(path); // v2.9.15：各模式新聊天根路径——battle 首页 /、Code 页 /code（每模式 New Chat 链接指向自己模式的根）
-  const generating=()=>[...document.querySelectorAll('button[aria-label]')].some(element=>visible(element)&&/stop|cancel/i.test(element.getAttribute('aria-label')||''))||[...document.querySelectorAll('[data-streaming="true"],[aria-busy="true"]')].some(visible);
+  /* 页面性能：generating() 每个 tick 全页两次 querySelector —— 250ms 拍内缓存与 domTick 最小复查间隔对齐；
+     各调用点的等待预算（1.2s 稳定窗 / 6s 截断窗等）都远大于 250ms，−250ms 时滞不影响判定。 */
+  const generatingCompute=()=>[...document.querySelectorAll('button[aria-label]')].some(element=>visible(element)&&/stop|cancel/i.test(element.getAttribute('aria-label')||''))||[...document.querySelectorAll('[data-streaming="true"],[aria-busy="true"]')].some(visible);
+  const generating=()=>cachedRead('generating',250,generatingCompute);
   /* v2.9.23：防节流 sleep —— 隐藏标签页的链式 setTimeout 会被 Chrome 双重降频（隐藏后钳 1 秒、超 5 分钟降到 1 分钟/次），
      confirmSend/waitFor 的秒级窗口会大面积假超时（后台抽卡「识别不出模型」的直接原因）。
      改为后台 SW 计时器竞速：SW 的 setTimeout 不受页面可见性节流，经长连接端口回唤醒；
