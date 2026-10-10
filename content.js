@@ -1147,7 +1147,9 @@
   window.addEventListener('popstate',paint);window.navigation?.addEventListener('navigatesuccess',paint);
   new MutationObserver(()=>{if(host&&!host.isConnected)createHud();}).observe(document,{childList:true,subtree:true});
   try{document.documentElement.dataset.ampBuild='v2917M';}catch{} // 构建标记：验证页面注入的是最新脚本
-  createHud();setInterval(paint,1000); // 无条件重画：SPA 切到 battle 等路径时 1 秒内自动显隐（显隐判断在 paint 内部）
+  /* 页面性能：1s 无条件重画改事件驱动 —— 路由/历史变更与嗅探回包即时重画（它们正是 agentPage/explicit 状态变化的来源），
+     另留 5s 低频兜底兜住其余不定期变化（显隐判断仍在 paint 内部，行为语义不变）。 */
+  createHud();setInterval(paint,5000);
   setInterval(()=>{if(running||draw.running){try{chrome.runtime.sendMessage({type:'AMP_PING'}).catch(()=>{});}catch{}}},20000); // v2.9.15：运行期给 SW 保活，防止调试会话因 SW 挂起变孤儿
   void loadPrefs().then(()=>loadLocalState()).then(()=>{paint();void refreshBalance(false);});
 
