@@ -1,6 +1,8 @@
 /* Rename the current Arena conversation through Arena's visible UI only. */
 (() => {
   let busy=false,busySince=0;
+  /* Arena 站点源：生产 arena.ai 与预发布 canary.arena.ai（同一产品；登录态/新功能常先在 canary）。 */
+  const ARENA_ORIGIN_RE=/^https:\/\/(?:canary\.)?arena\.ai$/;
   const sessionFromPath=path=>path.match(/^\/(?:agent|work)\/([a-zA-Z0-9-]{1,128})\/?$/)?.[1]||null;
   const text=element=>(element?.textContent||'').trim();
   const exact=(element,words)=>words.includes(text(element));
@@ -20,7 +22,7 @@
   async function rename({sessionId,title,isCurrent=()=>true}){
     const nextTitle=validate(sessionId,title);
     if(busy&&Date.now()-busySince<60000)throw Error('已有重命名/清理正在进行，请稍候');busy=false; // v2.5.3：超过 60 秒的忙锁视为失效，避免卡住后续操作
-    const guard=()=>{if(location.origin!=='https://arena.ai'||sessionFromPath(location.pathname)!==sessionId||!isCurrent())throw Error('当前会话已变化，停止重命名');};
+    const guard=()=>{if(!ARENA_ORIGIN_RE.test(location.origin)||sessionFromPath(location.pathname)!==sessionId||!isCurrent())throw Error('当前会话已变化，停止重命名');};
     const wait=(check,message,timeout=8000)=>new Promise((resolve,reject)=>{
       let observer,timer,interval,done=false;
       const finish=(error,value)=>{if(done)return;done=true;observer?.disconnect();clearTimeout(timer);clearInterval(interval);error?reject(error):resolve(value);};
@@ -28,7 +30,7 @@
       observer=new MutationObserver(tick);observer.observe(document,{subtree:true,childList:true,attributes:true,characterData:true});
       interval=setInterval(tick,100);timer=setTimeout(()=>finish(Error(message)),timeout);tick();
     });
-    const links=()=>[...document.querySelectorAll('a[data-sidebar="menu-button"][href]')].filter(link=>{try{const url=new URL(link.href);return url.origin==='https://arena.ai'&&sessionFromPath(url.pathname)===sessionId;}catch{return false;}});
+    const links=()=>[...document.querySelectorAll('a[data-sidebar="menu-button"][href]')].filter(link=>{try{const url=new URL(link.href);return ARENA_ORIGIN_RE.test(url.origin)&&sessionFromPath(url.pathname)===sessionId;}catch{return false;}});
     const currentLink=()=>links().find(link=>visible(link)&&!link.closest?.('[data-state="collapsed"][data-collapsible]'))||null;
     guard();busy=true;busySince=Date.now();let menu=null,dialog=null,submitted=false,oldTitle='';
     try{
@@ -89,9 +91,9 @@
     if(busy&&Date.now()-busySince<60000)throw Error('已有重命名/清理正在进行，请稍候');busy=false; // v2.5.3：超过 60 秒的忙锁视为失效
     // v2.5.7：归档依赖的是「侧栏里的那一行」，与当前打开的是哪个聊天无关 ——
     // 抽卡会立刻新建下一个对话、页面已经翻页，旧守卫硬要求路径==sessionId，清理会被误判成「当前聊天已变化」而放弃。
-    const guard=()=>{if(location.origin!=='https://arena.ai'||!isCurrent())throw Error('页面已离开 Arena 或抽卡已停止，未归档');};
+    const guard=()=>{if(!ARENA_ORIGIN_RE.test(location.origin)||!isCurrent())throw Error('页面已离开 Arena 或抽卡已停止，未归档');};
     const sidebarExpanded=element=>visible(element)&&!element.closest?.('[data-state="collapsed"][data-collapsible]');
-    const links=()=>[...document.querySelectorAll('a[data-sidebar="menu-button"][href]')].filter(link=>{try{const url=new URL(link.href);return url.origin==='https://arena.ai'&&sessionFromPath(url.pathname)===sessionId;}catch{return false;}});
+    const links=()=>[...document.querySelectorAll('a[data-sidebar="menu-button"][href]')].filter(link=>{try{const url=new URL(link.href);return ARENA_ORIGIN_RE.test(url.origin)&&sessionFromPath(url.pathname)===sessionId;}catch{return false;}});
     const wait=(check,message,timeout=15000)=>new Promise((resolve,reject)=>{
       let timer,interval,done=false;
       const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);clearInterval(interval);error?reject(error):resolve(value);};
@@ -136,7 +138,7 @@
         :{h2:['Delete chat','Delete conversation','删除对话','删除聊天'],button:['Delete','删除']};
       let stableSince=0;
       await wait(()=>{
-        if(location.origin!=='https://arena.ai')throw Error('页面已离开 Arena，无法确认结果；本地记录保留');
+        if(!ARENA_ORIGIN_RE.test(location.origin))throw Error('页面已离开 Arena，无法确认结果；本地记录保留');
         const dialogs=[...document.querySelectorAll('[role="dialog"],[role="alertdialog"]')].filter(visible);
         if(dialogs.length){
           guard();

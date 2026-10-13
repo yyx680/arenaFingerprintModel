@@ -1,0 +1,1465 @@
+{
+ "schema": "arena-model-pricing",
+ "source": "https://arena.ai/leaderboard (RSC flight)",
+ "fetched_at": "2026-10-11T16:24:51.557Z",
+ "unit": "usd_per_million_tokens",
+ "note": "Arena 榜单公开的逐模型 token 单价（input/outputPricePerMillion）。用于「成本 ÷ token = 有效单价 → 匹配模型」。",
+ "rows": [
+  {
+   "model_key": "claude-opus-5.5-high-vertex-agent",
+   "display": "Claude Opus 5.5 (High)",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 20
+  },
+  {
+   "model_key": "gpt-6-astra-max-agent",
+   "display": "GPT 6 Astra (Max)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50
+  },
+  {
+   "model_key": "claude-fable-5.1-max-agent",
+   "display": "Claude Fable 5.1 (Max)",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50
+  },
+  {
+   "model_key": "gpt-6.1-sol-max-agent",
+   "display": "GPT 6.1 Sol (Max)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "gpt-6-sol-max-agent",
+   "display": "GPT 6 Sol (Max)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "barium-bb-v2-4xts-agent",
+   "display": "Gemini 4 Argon (High)",
+   "org": "Google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "claude-fable-5-agent",
+   "display": "Claude Fable 5 (High)",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50
+  },
+  {
+   "model_key": "claude-opus-5-max-agent",
+   "display": "Claude Opus 5 (Max)",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "claude-opus-5-high-agent",
+   "display": "Claude Opus 5 (High)",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "claude-opus-4-8-thinking-agent",
+   "display": "Claude Opus 4.8 (High)",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "gpt-5.6-sol-xhigh-agent",
+   "display": "GPT 5.6 Sol (xHigh)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 20
+  },
+  {
+   "model_key": "claude-sonnet-5-agent",
+   "display": "Claude Sonnet 5 (High)",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "gpt-5.5-xhigh-agent",
+   "display": "GPT 5.5 (xHigh)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "muse-spark-1-3-max-agent",
+   "display": "Muse Spark 1.3 (Max)",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "deepseek-v4.1-flash-max-20260910-agent",
+   "display": "Deepseek V4.1 Flash (Max)",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "kivine-wxzc-agent",
+   "display": "Kimi K3 (Max)",
+   "org": "Moonshot",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "phoenix-qcs2-agent",
+   "display": "Hy4 preview",
+   "org": "Tencent",
+   "input_usd_per_mtok": 0.834,
+   "output_usd_per_mtok": 2.501
+  },
+  {
+   "model_key": "mimo-v2-6-pro-public-agent",
+   "display": "MiMo V2.6 Pro",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.435,
+   "output_usd_per_mtok": 0.87
+  },
+  {
+   "model_key": "glm-5.2-agent",
+   "display": "GLM 5.2 (Max)",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1.4,
+   "output_usd_per_mtok": 4.4
+  },
+  {
+   "model_key": "grok-4.7-xhigh-public-agent",
+   "display": "Grok 4.7 (xHigh)",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "skimaki-kwc6-agent",
+   "display": "Gemini 3.8 Flash (High)",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75
+  },
+  {
+   "model_key": "paisley-n9x0",
+   "display": "Qwen3.8 Max",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "glm-5.3-agent",
+   "display": "GLM 5.3 (Max)",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1.4,
+   "output_usd_per_mtok": 4.4
+  },
+  {
+   "model_key": "gpt-6-luna-max-agent",
+   "display": "GPT 6 Luna (Max)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.5
+  },
+  {
+   "model_key": "grok-4.5-agent",
+   "display": "Grok 4.5",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "gpt-5.4-high-code-arena-harness-agent",
+   "display": "GPT 5.4 (High)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "gpt-5.5-agent",
+   "display": "GPT 5.5",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "gpt-5.6-terra-xhigh-agent",
+   "display": "GPT 5.6 Terra (xHigh)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12
+  },
+  {
+   "model_key": "mimo-v2-6-flash-agent",
+   "display": "MiMo V2.6 Flash",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.14,
+   "output_usd_per_mtok": 0.28
+  },
+  {
+   "model_key": "step-5-preview-agent",
+   "display": "Step 5 Preview",
+   "org": "StepFun",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 2.7
+  },
+  {
+   "model_key": "farris-ees5-agent",
+   "display": "Qwen3.8 Flash Next",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 0.16,
+   "output_usd_per_mtok": 0.47
+  },
+  {
+   "model_key": "glm-5.3-flash-agent",
+   "display": "GLM 5.3 Flash",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 0.06,
+   "output_usd_per_mtok": 0.2
+  },
+  {
+   "model_key": "gpt-5.6-luna-xhigh-agent",
+   "display": "GPT 5.6 Luna (xHigh)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "qwen3.8-27b-code-agent",
+   "display": "Qwen 3.8 27B",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 3
+  },
+  {
+   "model_key": "andwise-evfd-agent",
+   "display": "Gemini 3.7 Flash (High)",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75
+  },
+  {
+   "model_key": "muse-spark-1.2-xhigh-agent",
+   "display": "Muse Spark 1.2 (xHigh)",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "super-nova-ext-3tam-agent",
+   "display": "Muse Spark 1.1",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "hy3-tencent-cloud-agent",
+   "display": "Hy3",
+   "org": "Tencent",
+   "input_usd_per_mtok": 0.132,
+   "output_usd_per_mtok": 0.528
+  },
+  {
+   "model_key": "mistral-large-4-agent",
+   "display": "mistral-large-4",
+   "org": "Mistral",
+   "input_usd_per_mtok": 0.68,
+   "output_usd_per_mtok": 2.09
+  },
+  {
+   "model_key": "minimax-m3-first-party",
+   "display": "Minimax M3",
+   "org": "MiniMax",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "qwen3.7-plus-agent",
+   "display": "Qwen3.7 Plus",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 0.32,
+   "output_usd_per_mtok": 1.28
+  },
+  {
+   "model_key": "mimo-v2.5-pro-agent",
+   "display": "Mimo V2.5 Pro",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.435,
+   "output_usd_per_mtok": 0.87
+  },
+  {
+   "model_key": "gemini-3.6-flash-agent",
+   "display": "Gemini 3.6 Flash (High)",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75
+  },
+  {
+   "model_key": "gemini-3.1-pro-preview-agent",
+   "display": "Gemini 3.1 Pro Preview",
+   "org": "Google",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "inkling-small",
+   "display": "Inkling Small",
+   "org": "Thinky",
+   "input_usd_per_mtok": 0.45,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "inkling-agent",
+   "display": "Inkling",
+   "org": "Thinky",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 4.05
+  },
+  {
+   "model_key": "mistral-medium-3.5-v2-agent",
+   "display": "Mistral Medium 3.5",
+   "org": "Mistral",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75
+  },
+  {
+   "model_key": "solar-pro4-agent",
+   "display": "Solar Pro 4",
+   "org": "Upstage",
+   "input_usd_per_mtok": 0.09,
+   "output_usd_per_mtok": 0.36
+  },
+  {
+   "model_key": "glm-5.3",
+   "display": "glm-5.3-max",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1.4,
+   "output_usd_per_mtok": 4.4
+  },
+  {
+   "model_key": "gemini-3.6-flash",
+   "display": "gemini-3.6-flash-high",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75
+  },
+  {
+   "model_key": "minimax-m3",
+   "display": "minimax-m3",
+   "org": "MiniMax",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "claude-opus-5.5-max-vertex-webdev",
+   "display": "claude-opus-5.5-max",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 20
+  },
+  {
+   "model_key": "gpt-6-astra-max-code-codex-harness",
+   "display": "gpt-6-astra-max",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50
+  },
+  {
+   "model_key": "claude-sonnet-5-5-xhigh",
+   "display": "claude-sonnet-5.5-xhigh",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "gpt-6.1-sol-max-code-codex-harness",
+   "display": "gpt-6.1-sol-max",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "claude-fable-5.1-max-webdev",
+   "display": "claude-fable-5.1-max",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50
+  },
+  {
+   "model_key": "claude-sonnet-5-5-high",
+   "display": "claude-sonnet-5.5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "claude-opus-5-max-webdev",
+   "display": "claude-opus-5-max",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "gpt-6-sol-max-code-codex-harness",
+   "display": "gpt-6-sol-max",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "barium-bb-v2-4xts-webdev",
+   "display": "gemini-4-argon-high",
+   "org": "Google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "kiana-8mgg",
+   "display": "qwen3.8-max-0902",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "kinsley-5jmg",
+   "display": "qwen3.8-max",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "claude-opus-5-high-webdev",
+   "display": "claude-opus-5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "muse-spark-1-3-max-bhma-webdev",
+   "display": "muse-spark-1.3-max",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "kivine-wxzc",
+   "display": "kimi-k3-max",
+   "org": "Moonshot",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "grok-4.7-xhigh-public",
+   "display": "grok-4.7-xhigh",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "mimo-v2-6-flash-webdev",
+   "display": "mimo-v2.6-flash",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.14,
+   "output_usd_per_mtok": 0.28
+  },
+  {
+   "model_key": "farris-ees5-webdev",
+   "display": "qwen3.8-flash-next",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 0.16,
+   "output_usd_per_mtok": 0.47
+  },
+  {
+   "model_key": "phoenix-qcs2-webdev",
+   "display": "hy4-preview",
+   "org": "Tencent",
+   "input_usd_per_mtok": 0.834,
+   "output_usd_per_mtok": 2.501
+  },
+  {
+   "model_key": "mimo-v2-6-pro-public-webdev",
+   "display": "mimo-v2.6-pro",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.435,
+   "output_usd_per_mtok": 0.87
+  },
+  {
+   "model_key": "muse-spark-1.3-xhigh-webdev",
+   "display": "muse-spark-1.3 (xHigh)",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "claude-fable-5-webdev",
+   "display": "claude-fable-5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50
+  },
+  {
+   "model_key": "deepseek-v4.1-flash-max-20260910-webdev",
+   "display": "deepseek-v4.1-flash-max",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "gpt-5.6-sol-xhigh-code-codex-harness-webdev",
+   "display": "gpt-5.6-sol-xhigh (codex-harness)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 20
+  },
+  {
+   "model_key": "grok-4.6-high-public-webdev",
+   "display": "grok-4.6-high",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "glm-5.3-flash-webdev",
+   "display": "glm-5.3-flash",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 0.06,
+   "output_usd_per_mtok": 0.2
+  },
+  {
+   "model_key": "glm-5.2-code",
+   "display": "glm-5.2-max",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1.4,
+   "output_usd_per_mtok": 4.4
+  },
+  {
+   "model_key": "qwen3.8-27b-code-webdev",
+   "display": "qwen3.8-27b",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 3
+  },
+  {
+   "model_key": "andwise-evfd",
+   "display": "gemini-3.7-flash-high",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75
+  },
+  {
+   "model_key": "claude-haiku-5.5-high-vertex",
+   "display": "claude-haiku-5.5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.5
+  },
+  {
+   "model_key": "skimaki-kwc6",
+   "display": "gemini-3.8-flash-high",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75
+  },
+  {
+   "model_key": "deepseek-v4-pro-high-20260813-webdev",
+   "display": "deepseek-v4-pro-high-20260813",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 1.32,
+   "output_usd_per_mtok": 3.96
+  },
+  {
+   "model_key": "deepseek-v4-flash-high-20260730-webdev",
+   "display": "deepseek-v4-flash-high",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "gpt-6-luna-max-code-codex-harness",
+   "display": "gpt-6-luna-max",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.5
+  },
+  {
+   "model_key": "claude-opus-4-7-thinking-webdev",
+   "display": "claude-opus-4-7-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "claude-opus-4-8-thinking-webdev",
+   "display": "claude-opus-4-8-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "claude-opus-4-7-webdev",
+   "display": "claude-opus-4-7",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "grok-4.5-webdev",
+   "display": "grok-4.5",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "claude-opus-4-6-thinking-webdev",
+   "display": "claude-opus-4-6-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "super-nova-ext-3tam-webdev",
+   "display": "muse-spark-1.1",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "mistral-large-4-webdev",
+   "display": "mistral-large-4",
+   "org": "Mistral",
+   "input_usd_per_mtok": 0.68,
+   "output_usd_per_mtok": 2.09
+  },
+  {
+   "model_key": "claude-sonnet-5-webdev",
+   "display": "claude-sonnet-5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "claude-opus-4-6",
+   "display": "claude-opus-4-6",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "claude-opus-4-8-webdev",
+   "display": "claude-opus-4-8",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "muse-spark-1.2-xhigh-webdev",
+   "display": "muse-spark-1.2 (xHigh)",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "claude-sonnet-4-6",
+   "display": "claude-sonnet-4-6",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 1.5,
+   "output_usd_per_mtok": 7.5
+  },
+  {
+   "model_key": "gpt-5.6-terra-xhigh-code-codex-harness-webdev",
+   "display": "gpt-5.6-terra-xhigh (codex-harness)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12
+  },
+  {
+   "model_key": "groudon-s41z",
+   "display": "seed-2.1-pro-preview",
+   "org": "Bytedance",
+   "input_usd_per_mtok": 0.88,
+   "output_usd_per_mtok": 4.42
+  },
+  {
+   "model_key": "gpt-5.6-luna-xhigh-code-codex-harness-webdev",
+   "display": "gpt-5.6-luna-xhigh (codex-harness)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "korin-6hkw",
+   "display": "qwen3.7-max-20260517",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 1.475,
+   "output_usd_per_mtok": 4.425
+  },
+  {
+   "model_key": "gpt-5.5-xhigh-webdev",
+   "display": "gpt-5.5-xhigh (codex-harness)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "ajax-20260517",
+   "display": "gemini-3.5-flash",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 4.5
+  },
+  {
+   "model_key": "kimi-k2.6-code",
+   "display": "kimi-k2.6",
+   "org": "Moonshot",
+   "input_usd_per_mtok": 0.95,
+   "output_usd_per_mtok": 4
+  },
+  {
+   "model_key": "hy3-tencent-cloud-code",
+   "display": "hy3",
+   "org": "Tencent",
+   "input_usd_per_mtok": 0.132,
+   "output_usd_per_mtok": 0.528
+  },
+  {
+   "model_key": "glm-5.1-code",
+   "display": "glm-5.1",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1.4,
+   "output_usd_per_mtok": 4.4
+  },
+  {
+   "model_key": "gemini-3.5-flash-high-public",
+   "display": "gemini-3.5-flash-high",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 4.5
+  },
+  {
+   "model_key": "claude-opus-4-5-20251101-thinking-32k",
+   "display": "claude-opus-4-5-20251101-high-32k",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "gemini-3.5-flash-medium",
+   "display": "gemini-3.5-flash-medium",
+   "org": "Google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 4.5
+  },
+  {
+   "model_key": "gpt-5.5-high-webdev",
+   "display": "gpt-5.5-high (codex-harness)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "qwen3.6-max-preview-code",
+   "display": "qwen3.6-max-preview",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 1.268,
+   "output_usd_per_mtok": 7.608
+  },
+  {
+   "model_key": "mimo-v2.5-pro-webdev",
+   "display": "mimo-v2.5-pro",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.435,
+   "output_usd_per_mtok": 0.87
+  },
+  {
+   "model_key": "kimi-k2.7-code",
+   "display": "kimi-k2.7-code",
+   "org": "Moonshot",
+   "input_usd_per_mtok": 0.6712,
+   "output_usd_per_mtok": 3.35
+  },
+  {
+   "model_key": "claude-opus-4-5-20251101",
+   "display": "claude-opus-4-5-20251101",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "gpt-5.4-high-code-codex-harness",
+   "display": "gpt-5.4-high (codex-harness)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "deepseek-v4-pro-ch1-thinking-webdev",
+   "display": "deepseek-v4-pro-high-preview",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 1.32,
+   "output_usd_per_mtok": 3.96
+  },
+  {
+   "model_key": "qwen3.6-plus-v1-webdev",
+   "display": "qwen3.6-plus",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 0.325,
+   "output_usd_per_mtok": 1.95
+  },
+  {
+   "model_key": "gpt-5.5-webdev",
+   "display": "gpt-5.5 (codex-harness)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "deepseek-v4-pro-ch1-webdev",
+   "display": "deepseek-v4-pro",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 1.32,
+   "output_usd_per_mtok": 3.96
+  },
+  {
+   "model_key": "gemini-3.1-pro-preview",
+   "display": "gemini-3.1-pro-preview",
+   "org": "Google",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "gpt-5.4-medium-code-codex-harness",
+   "display": "gpt-5.4-medium (codex-harness)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "gemini-3.5-flash-lite",
+   "display": "gemini-3.5-flash-lite",
+   "org": "Google",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 1.25
+  },
+  {
+   "model_key": "gemini-3-pro",
+   "display": "gemini-3-pro",
+   "org": "Google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12
+  },
+  {
+   "model_key": "gemini-3-flash",
+   "display": "gemini-3-flash",
+   "org": "Google",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 3
+  },
+  {
+   "model_key": "mimo-v2.5-webdev",
+   "display": "mimo-v2.5",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.14,
+   "output_usd_per_mtok": 0.28
+  },
+  {
+   "model_key": "kimi-k2.5-webdev",
+   "display": "kimi-k2.5-thinking",
+   "org": "Moonshot",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 3
+  },
+  {
+   "model_key": "glm-4.7",
+   "display": "glm-4.7",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 2.2
+  },
+  {
+   "model_key": "glm-5-webdev",
+   "display": "glm-5",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 3.2
+  },
+  {
+   "model_key": "barium-bb-wlqc-text",
+   "display": "gemini-4-argon-high",
+   "org": "Google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "claude-opus-5.5-high-vertex",
+   "display": "claude-opus-5.5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 20
+  },
+  {
+   "model_key": "claude-opus-4-6-thinking",
+   "display": "claude-opus-4-6-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "claude-fable-5-text",
+   "display": "claude-fable-5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50
+  },
+  {
+   "model_key": "claude-opus-4-7-thinking",
+   "display": "claude-opus-4-7-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "claude-fable-5.1-max-text",
+   "display": "claude-fable-5.1-max",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50
+  },
+  {
+   "model_key": "muse-spark-1-3-max-bhma-text",
+   "display": "muse-spark-1.3-max",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "claude-opus-4-7",
+   "display": "claude-opus-4-7",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "muse-spark-1.2-xhigh-text",
+   "display": "muse-spark-1.2 (xHigh)",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "super-nova-ext-3tam-text",
+   "display": "muse-spark-1.1",
+   "org": "Meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25
+  },
+  {
+   "model_key": "claude-opus-5-high-text",
+   "display": "claude-opus-5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "claude-opus-5-max-text",
+   "display": "claude-opus-5-max",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "gpt-5.6-sol-xhigh-text",
+   "display": "gpt-5.6-sol-xhigh",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 20
+  },
+  {
+   "model_key": "gpt-6.1-sol-max",
+   "display": "gpt-6.1-sol-max",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "kinsley-mrp8",
+   "display": "qwen3.8-max",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "gpt-5.5-high-text",
+   "display": "gpt-5.5-high",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "claude-opus-4-8-thinking-text",
+   "display": "claude-opus-4-8-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "mimo-v2-6-pro-mw0j-text",
+   "display": "mimo-v2.6-pro",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.435,
+   "output_usd_per_mtok": 0.87
+  },
+  {
+   "model_key": "gpt-5.5-text",
+   "display": "gpt-5.5",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "gpt-5.2-chat-latest",
+   "display": "gpt-5.2-chat-latest-20260210",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 1.75,
+   "output_usd_per_mtok": 14
+  },
+  {
+   "model_key": "glm-5.2-text",
+   "display": "glm-5.2-max",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1.4,
+   "output_usd_per_mtok": 4.4
+  },
+  {
+   "model_key": "gpt-5.4-high-no-system-prompt",
+   "display": "gpt-5.4-high",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "melyora-9qr6",
+   "display": "qwen3.7-max-preview",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 1.475,
+   "output_usd_per_mtok": 4.425
+  },
+  {
+   "model_key": "glm-5.3-flash-text",
+   "display": "glm-5.3-flash",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 0.06,
+   "output_usd_per_mtok": 0.2
+  },
+  {
+   "model_key": "deepseek-v4.1-flash-max-20260910-text",
+   "display": "deepseek-v4.1-flash-max",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "claude-opus-4-8-text",
+   "display": "claude-opus-4-8",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25
+  },
+  {
+   "model_key": "gpt-5.5-instant",
+   "display": "gpt-5.5-instant",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "grok-4.20-beta-0309-reasoning",
+   "display": "grok-4.20-beta-0309-reasoning",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 2.5
+  },
+  {
+   "model_key": "grok-4.20-multi-agent-beta-0309",
+   "display": "grok-4.20-multi-agent-beta-0309",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 2.5
+  },
+  {
+   "model_key": "mimo-v2.5-pro-text",
+   "display": "mimo-v2.5-pro",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.435,
+   "output_usd_per_mtok": 0.87
+  },
+  {
+   "model_key": "zero-prism",
+   "display": "ernie-5.1",
+   "org": "Baidu",
+   "input_usd_per_mtok": 0.5634,
+   "output_usd_per_mtok": 2.5353
+  },
+  {
+   "model_key": "gpt-5.6-terra-xhigh-text",
+   "display": "gpt-5.6-terra-xhigh",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12
+  },
+  {
+   "model_key": "grok-4.5-text",
+   "display": "grok-4.5",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "gpt-5.4-no-system-prompt",
+   "display": "gpt-5.4",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "kiteki",
+   "display": "qwen3.5-max-preview",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 1.2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "deepseek-v4-pro-high-20260813-text",
+   "display": "deepseek-v4-pro-high-20260813",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 1.32,
+   "output_usd_per_mtok": 3.96
+  },
+  {
+   "model_key": "glm-5.1-text",
+   "display": "glm-5.1",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1.4,
+   "output_usd_per_mtok": 4.4
+  },
+  {
+   "model_key": "claude-sonnet-5-text",
+   "display": "claude-sonnet-5-high",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "kimi-k2.6-text",
+   "display": "kimi-k2.6",
+   "org": "Moonshot",
+   "input_usd_per_mtok": 0.95,
+   "output_usd_per_mtok": 4
+  },
+  {
+   "model_key": "kizen-beta",
+   "display": "qwen3.6-max-preview",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 1.268,
+   "output_usd_per_mtok": 7.608
+  },
+  {
+   "model_key": "gemini-3-flash-thinking-minimal",
+   "display": "gemini-3-flash (thinking-minimal)",
+   "org": "Google",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 3
+  },
+  {
+   "model_key": "deepseek-v4-pro-ch1-text",
+   "display": "deepseek-v4-pro",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 1.32,
+   "output_usd_per_mtok": 3.96
+  },
+  {
+   "model_key": "glm-5",
+   "display": "glm-5",
+   "org": "Z.ai",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 3.2
+  },
+  {
+   "model_key": "claude-sonnet-4-5-20250929-thinking-32k",
+   "display": "claude-sonnet-4-5-20250929-high-32k",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "qwen3.7-plus",
+   "display": "qwen3.7-plus",
+   "org": "Alibaba",
+   "input_usd_per_mtok": 0.32,
+   "output_usd_per_mtok": 1.28
+  },
+  {
+   "model_key": "gpt-6-sol-max-text",
+   "display": "gpt-6-sol-max",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "gpt-5.1-high",
+   "display": "gpt-5.1-high",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0.625,
+   "output_usd_per_mtok": 5
+  },
+  {
+   "model_key": "claude-sonnet-4-5-20250929",
+   "display": "claude-sonnet-4-5-20250929",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15
+  },
+  {
+   "model_key": "deepseek-v4-pro-ch1-thinking-text",
+   "display": "deepseek-v4-pro-high-preview",
+   "org": "DeepSeek",
+   "input_usd_per_mtok": 1.32,
+   "output_usd_per_mtok": 3.96
+  },
+  {
+   "model_key": "grok-4.6-high-public-text",
+   "display": "grok-4.6-high",
+   "org": "SpaceXAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6
+  },
+  {
+   "model_key": "hy3-tencent-cloud-text",
+   "display": "hy3",
+   "org": "Tencent",
+   "input_usd_per_mtok": 0.132,
+   "output_usd_per_mtok": 0.528
+  },
+  {
+   "model_key": "gpt-5.6-luna-xhigh-text",
+   "display": "gpt-5.6-luna-xhigh",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 1.2
+  },
+  {
+   "model_key": "pteronura-text",
+   "display": "gemma-4-31b",
+   "org": "Google",
+   "input_usd_per_mtok": 0.99,
+   "output_usd_per_mtok": 1.49
+  },
+  {
+   "model_key": "mimo-v2-6-flash-text",
+   "display": "mimo-v2.6-flash",
+   "org": "Xiaomi",
+   "input_usd_per_mtok": 0.14,
+   "output_usd_per_mtok": 0.28
+  },
+  {
+   "model_key": "gpt-5.3-chat-latest",
+   "display": "gpt-5.3-chat-latest",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 1.75,
+   "output_usd_per_mtok": 14
+  },
+  {
+   "model_key": "kimi-k2.5-text",
+   "display": "kimi-k2.5-thinking",
+   "org": "Moonshot",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 3
+  },
+  {
+   "model_key": "claude-opus-4-1-20250805-thinking-16k",
+   "display": "claude-opus-4-1-20250805-thinking-16k",
+   "org": "Anthropic",
+   "input_usd_per_mtok": 15,
+   "output_usd_per_mtok": 75
+  },
+  {
+   "model_key": "lina-f-alpha-wyi7",
+   "display": "gpt-image-2.5-sunburst",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": null
+  },
+  {
+   "model_key": "lina-alpha-y6hr",
+   "display": "gpt-image-2.5-flare",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": null
+  },
+  {
+   "model_key": "gpt-image-2-medium",
+   "display": "gpt-image-2 (medium)",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 8,
+   "output_usd_per_mtok": 30
+  },
+  {
+   "model_key": "river-route-29j0",
+   "display": "gemini-nano-banana-2.1",
+   "org": "Google",
+   "input_usd_per_mtok": 1.5,
+   "output_usd_per_mtok": 7.5
+  },
+  {
+   "model_key": "gemini-3.1-flash-image (nano-banana-2)",
+   "display": "gemini-3.1-flash-image (nano-banana-2) [web-search]",
+   "org": "Google",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 3
+  },
+  {
+   "model_key": "gemini-3-pro-image-preview",
+   "display": "gemini-3-pro-image-preview (nano-banana-pro)",
+   "org": "Google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12
+  },
+  {
+   "model_key": "gemini-2.5-flash-image-preview",
+   "display": "gemini-2.5-flash-image-preview (nano-banana)",
+   "org": "Google",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 2.5
+  },
+  {
+   "model_key": "imagen-4.0-generate-001",
+   "display": "imagen-4.0-generate-001",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.04
+  },
+  {
+   "model_key": "gpt-image-1",
+   "display": "gpt-image-1",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 10
+  },
+  {
+   "model_key": "gpt-image-1-mini",
+   "display": "gpt-image-1-mini",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": null
+  },
+  {
+   "model_key": "imagen-3.0-generate-002",
+   "display": "imagen-3.0-generate-002",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.04
+  },
+  {
+   "model_key": "gemini-2.0-flash-preview-image-generation",
+   "display": "gemini-2.0-flash-preview-image-generation",
+   "org": "Google",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.4
+  },
+  {
+   "model_key": "flux-1-dev-fp8",
+   "display": "flux-1-dev-fp8",
+   "org": "Black Forest Labs",
+   "input_usd_per_mtok": 0.0005,
+   "output_usd_per_mtok": 0.0005
+  },
+  {
+   "model_key": "omni-1-1-eap-925h",
+   "display": "gemini-omni-1.1-flash",
+   "org": "Google",
+   "input_usd_per_mtok": 1.5,
+   "output_usd_per_mtok": 9
+  },
+  {
+   "model_key": "sora-2-pro",
+   "display": "sora-2-pro",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.3
+  },
+  {
+   "model_key": "veo-3.1-audio",
+   "display": "veo-3.1-audio",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.4
+  },
+  {
+   "model_key": "veo-3.1-fast-audio",
+   "display": "veo-3.1-fast-audio",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.15
+  },
+  {
+   "model_key": "veo-3-fast-audio",
+   "display": "veo-3-fast-audio",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.15
+  },
+  {
+   "model_key": "sora-2",
+   "display": "sora-2",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.1
+  },
+  {
+   "model_key": "veo-3-audio",
+   "display": "veo-3-audio",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.4
+  },
+  {
+   "model_key": "veo-3",
+   "display": "veo-3",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.4
+  },
+  {
+   "model_key": "veo-3-fast",
+   "display": "veo-3-fast",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.15
+  },
+  {
+   "model_key": "veo-2",
+   "display": "veo-2",
+   "org": "Google",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.35
+  },
+  {
+   "model_key": "sora",
+   "display": "sora",
+   "org": "OpenAI",
+   "input_usd_per_mtok": 0,
+   "output_usd_per_mtok": 0.1
+  }
+ ]
+}

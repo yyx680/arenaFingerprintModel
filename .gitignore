@@ -6,6 +6,12 @@ dist/
 *.zip
 _backup-*/
 
+# 临时探针脚本 / 诊断输出（草稿目录，不入库）
+# 注意：Chrome「加载已解压的扩展」会拒绝**任何** `_` 前缀的文件/目录
+# （"Filenames starting with _ are reserved"），所以草稿目录名不能带下划线。
+dev-scratch/
+_*
+
 # 系统 / 编辑器
 .DS_Store
 Thumbs.db

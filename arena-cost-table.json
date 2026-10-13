@@ -1,0 +1,36 @@
+{
+  "schema": "arena-agent-cost-table",
+  "fetched_at": "2026-10-11",
+  "source": "https://arena.ai/leaderboard/agent/pareto",
+  "methodology": "https://arena.ai/blog/agent-categories-and-cost",
+  "metric": "median cost per task (USD, last 14 days, Agent Mode)",
+  "note": "Arena 公开的每模型任务成本（p50）。同一模型的不同 effort 档（Max/High/xHigh）成本差很大，这里逐档保留；bank_id 指回指纹库模型 ID，null 表示该模型不在指纹库内（仅作参照）。",
+  "tiers": {
+    "premium": 2.5,
+    "high": 1.0,
+    "mid": 0.4,
+    "low": 0
+  },
+  "rows": [
+    {"bank_id": null, "model_id": "claude-fable-5-1", "label": "Claude Fable 5.1", "variant": "Max", "org": "Anthropic", "license": "proprietary", "cost_usd": 6.54},
+    {"bank_id": "claude-opus-5", "model_id": "claude-opus-5", "label": "Claude Opus 5", "variant": "Max", "org": "Anthropic", "license": "proprietary", "cost_usd": 5.22},
+    {"bank_id": "gpt-6-astra", "model_id": "gpt-6-astra", "label": "GPT 6 Astra", "variant": "Max", "org": "OpenAI", "license": "proprietary", "cost_usd": 3.47},
+    {"bank_id": "claude-sonnet-5-5", "model_id": "claude-sonnet-5-5", "label": "Claude Sonnet 5.5", "variant": "Max", "org": "Anthropic", "license": "proprietary", "cost_usd": 3.01},
+    {"bank_id": "claude-opus-5", "model_id": "claude-opus-5", "label": "Claude Opus 5", "variant": "High", "org": "Anthropic", "license": "proprietary", "cost_usd": 2.97},
+    {"bank_id": null, "model_id": "claude-fable-5", "label": "Claude Fable 5", "variant": "High", "org": "Anthropic", "license": "proprietary", "cost_usd": 2.69},
+    {"bank_id": "claude-opus-5-5", "model_id": "claude-opus-5-5", "label": "Claude Opus 5.5", "variant": "High", "org": "Anthropic", "license": "proprietary", "cost_usd": 1.79},
+    {"bank_id": "claude-opus-4-8", "model_id": "claude-opus-4-8", "label": "Claude Opus 4.8", "variant": "High", "org": "Anthropic", "license": "proprietary", "cost_usd": 1.37},
+    {"bank_id": "gpt-5.6-sol", "model_id": "gpt-5.6-sol", "label": "GPT 5.6 Sol", "variant": "xHigh", "org": "OpenAI", "license": "proprietary", "cost_usd": 1.30},
+    {"bank_id": "gpt-5.5", "model_id": "gpt-5.5", "label": "GPT 5.5", "variant": "xHigh", "org": "OpenAI", "license": "proprietary", "cost_usd": 1.14},
+    {"bank_id": "claude-sonnet-5", "model_id": "claude-sonnet-5", "label": "Claude Sonnet 5", "variant": "High", "org": "Anthropic", "license": "proprietary", "cost_usd": 0.98},
+    {"bank_id": "gpt-6-sol", "model_id": "gpt-6-sol", "label": "GPT 6 Sol", "variant": "Max", "org": "OpenAI", "license": "proprietary", "cost_usd": 0.78},
+    {"bank_id": null, "model_id": "gemini-4-argon", "label": "Gemini 4 Argon", "variant": "High", "org": "Google", "license": "proprietary", "cost_usd": 0.67},
+    {"bank_id": null, "model_id": "gpt-6.1-sol", "label": "GPT 6.1 Sol", "variant": "Max", "org": "OpenAI", "license": "proprietary", "cost_usd": 0.58},
+    {"bank_id": null, "model_id": "muse-spark-1.3", "label": "Muse Spark 1.3", "variant": "Max", "org": "Meta", "license": "proprietary", "cost_usd": 0.51},
+    {"bank_id": null, "model_id": "deepseek-v4p1-flash", "label": "Deepseek V4.1 Flash", "variant": "Max", "org": "DeepSeek", "license": "MIT", "cost_usd": 0.12},
+    {"bank_id": null, "model_id": "mimo-v2.6-pro", "label": "MiMo V2.6 Pro", "variant": null, "org": "Xiaomi", "license": "MIT", "cost_usd": 0.10},
+    {"bank_id": "gpt-6-luna", "model_id": "gpt-6-luna", "label": "GPT 6 Luna", "variant": "Max", "org": "OpenAI", "license": "proprietary", "cost_usd": 0.07},
+    {"bank_id": null, "model_id": "mimo-v2.6-flash", "label": "MiMo V2.6 Flash", "variant": null, "org": "Xiaomi", "license": "MIT", "cost_usd": 0.05},
+    {"bank_id": null, "model_id": "solar-pro4", "label": "Solar Pro 4", "variant": null, "org": "Upstage", "license": "proprietary", "cost_usd": 0.04}
+  ]
+}

@@ -1,20 +1,15 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arena Model Probe</title><link rel="stylesheet" href="popup.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vodka-Arena-Model</title><link rel="stylesheet" href="popup.css"></head>
 <body>
-  <header><span class="mark">M</span><div><h1>Arena Model Probe</h1><p>AUTO DRAW · v2.8.0 · Powered By Vodka</p></div></header>
+  <header><span class="mark">V</span><div><h1>Vodka-Arena-Model</h1><p>MODEL INTELLIGENCE · v2.19.9</p></div></header>
   <section id="unavailable" class="notice" hidden>请先打开或刷新一个 Arena Agent 页面。</section>
   <section id="controls">
-    <p class="warning">点击后立即发送：快速=随机 1 题（判定不是“清晰匹配”时自动补题加强证据，最多 3 题），精准=3 题全问；抽卡每轮先发一道随机数学题过人机验证，再发探针；每轮自动点“继续工作”，得到结果后自动把会话重命名为模型名。</p>
-    <div class="primary-actions"><button id="run-quick" class="primary" disabled>快速识别 · 随机1题</button><button id="run-precise" disabled>精准识别 · 3题全问</button></div>
-    <div class="minor-actions"><button id="append" disabled>再补 1 题</button><button id="stop" disabled>停止</button><button id="clear" disabled>清除结果</button></div>
-    <p id="progress" class="progress" role="status">正在读取当前页状态…</p>
-    <section id="result" class="result" hidden><div class="result-head"><b id="model"></b><span id="badge"></span></div><p id="metrics"></p><small id="bank"></small></section>
+    <div class="draw-grid"><label for="mode">识别模式</label><select id="mode"><option value="price">价格指纹</option><option value="quick">数字指纹</option><option value="combined">组合 · 数字 + 价格</option></select><label for="rename-nearest">改名（最接近）</label><input id="rename-nearest" type="checkbox" title="单次识别和抽卡共用；候选可能不准，不勾选就不改名"></div>
     <section class="draw">
       <h2>自动抽卡 <span>New Chat 循环</span></h2>
       <div class="draw-grid">
         <label for="rounds">轮数</label><input id="rounds" type="number" min="1" max="100" step="1" value="5">
-        <label for="mode">识别模式</label><select id="mode"><option value="quick">快速 · 随机1题</option><option value="precise">精准 · 3题全问</option></select>
         <label for="min-pulse">额度下限%</label><input id="min-pulse" type="number" min="0" max="100" step="1" value="0">
         <label for="block-thinking">拦截 thinking</label><input id="block-thinking" type="checkbox" title="开启后：检测到模型开始 thinking 立即截断，直接进入下一轮（本轮不识别、不改名）">
         <label for="auto-topup">自动补题</label><input id="auto-topup" type="checkbox" title="默认开启：快速模式下若判定不是“清晰匹配”，自动补发剩余探针（最多 3 题）加强证据；判定清晰时只问 1 题，更快">
@@ -24,9 +19,20 @@
       <p id="draw-progress" class="draw-note"></p>
       <div id="draw-results" class="results"></div>
     </section>
+    <p class="warning">点击即发送真实消息。选择价格指纹、数字指纹或组合；勾选改名时采用最接近候选（并非确定识别），未勾选只识别。组合在数字候选中结合价格排序。</p>
+    <div class="primary-actions"><button id="run-quick" class="primary" disabled>开始识别</button><button id="run-precise" disabled>精准识别 · 3题全问</button></div>
+    <div class="minor-actions"><button id="append" disabled>再补 1 题</button><button id="stop" disabled>停止</button><button id="clear" disabled>清除结果</button></div>
+    <p id="progress" class="progress" role="status">正在读取当前页状态…</p>
+    <section id="result" class="result" hidden><div class="result-head"><b id="model"></b><span id="badge"></span></div><p id="metrics"></p><small id="bank"></small></section>
     <section class="balance">
       <div class="balance-row"><span>每日额度剩余</span><b id="balance-value">—</b><button id="balance-refresh">刷新</button></div>
       <p id="balance-note" class="balance-note">额度来自 arena.ai/api/me/pulse（百分比）</p>
+    </section>
+    <section class="ledger">
+      <div class="ledger-row"><span>本次会话花费</span><b id="ledger-value">—</b><button id="ledger-toggle">明细 ▸</button><button id="ledger-refresh">刷新</button></div>
+      <p id="ledger-ratio" class="ledger-ratio"></p>
+      <div id="ledger-table" class="ledger-table" hidden></div>
+      <p id="ledger-note" class="ledger-note">基准价 = Σ token × 公开单价（不需计费账号）；实扣 = 页面下发的真实成本。</p>
     </section>
   </section>
   <footer>只提取数字序列 · 本机评分 · 不保存聊天正文 · <b>由 Vodka 制作</b><br><span>抽卡会真实消耗 Arena 额度；轮数由你控制，随时可停止。</span></footer>

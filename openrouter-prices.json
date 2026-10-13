@@ -1,0 +1,3400 @@
+{
+ "schema": "openrouter-prices",
+ "fetched_at": "2026-10-13",
+ "source": "https://openrouter.ai/api/v1/models",
+ "source_note": "Arena 榜单只覆盖它自己上架的模型；本表把 OpenRouter 公开价目里 Arena 没有的模型整行补进来，供价格通道做候选。",
+ "caveat": "非 Arena 官方口径 —— 实际渠道价、分层价（tiers）、历史价未计入。Arena 榜单已有的 model_key 一律以 Arena 为准，本表不覆盖。",
+ "unit": "usd_per_million_tokens",
+ "rows": [
+  {
+   "model_key": "meta/muse-wonder",
+   "display": "Meta: Muse Wonder",
+   "org": "meta",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 20,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "stepfun/step-5-preview",
+   "display": "StepFun: Step 5 Preview",
+   "org": "stepfun",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 2.7,
+   "cache_read_usd_per_mtok": 0.05,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-haiku-5.5",
+   "display": "Anthropic: Claude Haiku 5.5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.5,
+   "cache_read_usd_per_mtok": 0.01,
+   "cache_write_usd_per_mtok": 0.125,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-nano-banana-2.1",
+   "display": "Google: Nano Banana 2.1",
+   "org": "google",
+   "input_usd_per_mtok": 1.5,
+   "output_usd_per_mtok": 7.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-large-4-0",
+   "display": "Mistral: Mistral Large 4",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.68,
+   "output_usd_per_mtok": 2.09,
+   "cache_read_usd_per_mtok": 0.07,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "unbiased/pareto-26.10-preview",
+   "display": "Pareto 26.10 Preview",
+   "org": "unbiased",
+   "input_usd_per_mtok": 0.8,
+   "output_usd_per_mtok": 3.2,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-6.1-sol-pro",
+   "display": "OpenAI: GPT-6.1 Sol Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-6.1-sol",
+   "display": "OpenAI: GPT-6.1 Sol",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-sonnet-5.5",
+   "display": "Anthropic: Claude Sonnet 5.5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "perceptron/perceptron-mk1.5",
+   "display": "Perceptron: Perceptron Mk1.5",
+   "org": "perceptron",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 1.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "fireworks/ember-1",
+   "display": "Fireworks: Ember-1",
+   "org": "fireworks",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": 0.3,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5.3-prime",
+   "display": "Z.ai: GLM 5.3 Prime",
+   "org": "z-ai",
+   "input_usd_per_mtok": 2.8,
+   "output_usd_per_mtok": 8.8,
+   "cache_read_usd_per_mtok": 0.56,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.8-max-prime",
+   "display": "Qwen: Qwen3.8 Max Prime",
+   "org": "qwen",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 12,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "aion-labs/aion-3.5-mini",
+   "display": "AionLabs: Aion 3.5 Mini",
+   "org": "aion-labs",
+   "input_usd_per_mtok": 0.7,
+   "output_usd_per_mtok": 1.4,
+   "cache_read_usd_per_mtok": 0.18,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "aion-labs/aion-3.5",
+   "display": "AionLabs: Aion 3.5",
+   "org": "aion-labs",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.75,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "upstage/solar-mini4",
+   "display": "Upstage: Solar Mini 4",
+   "org": "upstage",
+   "input_usd_per_mtok": 0.05,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": 0.005,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "cohere/command-a-plus",
+   "display": "Cohere: Command A+",
+   "org": "cohere",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.5,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-6-luna-pro",
+   "display": "OpenAI: GPT-6 Luna Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.5,
+   "cache_read_usd_per_mtok": 0.01,
+   "cache_write_usd_per_mtok": 0.125,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-6-luna",
+   "display": "OpenAI: GPT-6 Luna",
+   "org": "openai",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.5,
+   "cache_read_usd_per_mtok": 0.01,
+   "cache_write_usd_per_mtok": 0.125,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-6-sol-pro",
+   "display": "OpenAI: GPT-6 Sol Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-6-sol",
+   "display": "OpenAI: GPT-6 Sol",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-opus-5.5",
+   "display": "Anthropic: Claude Opus 5.5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 4,
+   "output_usd_per_mtok": 20,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "xiaomi/mimo-v2.6-pro-ultraspeed",
+   "display": "Xiaomi: MiMo-V2.6-Pro-UltraSpeed",
+   "org": "xiaomi",
+   "input_usd_per_mtok": 4.35,
+   "output_usd_per_mtok": 8.7,
+   "cache_read_usd_per_mtok": 0.036,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "xiaomi/mimo-v2.6-flash",
+   "display": "Xiaomi: MiMo-V2.6-Flash",
+   "org": "xiaomi",
+   "input_usd_per_mtok": 0.14,
+   "output_usd_per_mtok": 0.28,
+   "cache_read_usd_per_mtok": 0.0028,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "xiaomi/mimo-v2.6-pro",
+   "display": "Xiaomi: MiMo-V2.6-Pro",
+   "org": "xiaomi",
+   "input_usd_per_mtok": 0.435,
+   "output_usd_per_mtok": 0.87,
+   "cache_read_usd_per_mtok": 0.0036,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "x-ai/grok-4.7",
+   "display": "SpaceXAI: Grok 4.7",
+   "org": "x-ai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.8-omni-flash",
+   "display": "Qwen: Qwen3.8 Omni Flash",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.47,
+   "cache_read_usd_per_mtok": 0.016,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "prism-ml/ternary-bonsai-2-27b",
+   "display": "PrismML: Ternary Bonsai 2 27B",
+   "org": "prism-ml",
+   "input_usd_per_mtok": 0.075,
+   "output_usd_per_mtok": 0.5,
+   "cache_read_usd_per_mtok": 0.0375,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5.3-flashx",
+   "display": "Z.ai: GLM 5.3 FlashX",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.37,
+   "output_usd_per_mtok": 1.25,
+   "cache_read_usd_per_mtok": 0.09,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "unbiased/pareto",
+   "display": "Pareto",
+   "org": "unbiased",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 7.5,
+   "cache_read_usd_per_mtok": 0.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "inference-net/schematron-v2-turbo",
+   "display": "Inference.net: Schematron V2 Turbo",
+   "org": "inference-net",
+   "input_usd_per_mtok": 0.03,
+   "output_usd_per_mtok": 0.15,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "inference-net/schematron-v2-small",
+   "display": "Inference.net: Schematron V2 Small",
+   "org": "inference-net",
+   "input_usd_per_mtok": 0.05,
+   "output_usd_per_mtok": 0.23,
+   "cache_read_usd_per_mtok": 0.05,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "sakana/fugu-ultra-v2",
+   "display": "Sakana: Fugu Ultra v2",
+   "org": "sakana",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "sakana/fugu-max",
+   "display": "Sakana: Fugu Max",
+   "org": "sakana",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "inclusionai/ling-3.0-flash-vl",
+   "display": "inclusionAI: Ling 3.0 Flash VL",
+   "org": "inclusionai",
+   "input_usd_per_mtok": 0.021,
+   "output_usd_per_mtok": 0.0616,
+   "cache_read_usd_per_mtok": 0.0042,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v4.1-flash",
+   "display": "DeepSeek: DeepSeek V4.1 Flash",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": 0.003,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "inception/mercury-2.5",
+   "display": "Inception: Mercury 2.5",
+   "org": "inception",
+   "input_usd_per_mtok": 0.04,
+   "output_usd_per_mtok": 0.15,
+   "cache_read_usd_per_mtok": 0.004,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nex-agi/nex-n2.5-mini",
+   "display": "Nex AGI: Nex-N2.5-Mini",
+   "org": "nex-agi",
+   "input_usd_per_mtok": 0.025,
+   "output_usd_per_mtok": 0.1,
+   "cache_read_usd_per_mtok": 0.0025,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nex-agi/nex-n2.5-pro",
+   "display": "Nex AGI: Nex-N2.5-Pro",
+   "org": "nex-agi",
+   "input_usd_per_mtok": 0.075,
+   "output_usd_per_mtok": 0.25,
+   "cache_read_usd_per_mtok": 0.015,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-6-astra",
+   "display": "OpenAI: GPT-6 Astra",
+   "org": "openai",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50,
+   "cache_read_usd_per_mtok": 1,
+   "cache_write_usd_per_mtok": 12.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-6-astra-pro",
+   "display": "OpenAI: GPT-6 Astra Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50,
+   "cache_read_usd_per_mtok": 1,
+   "cache_write_usd_per_mtok": 12.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "inclusionai/ling-3.0-flash-sante",
+   "display": "inclusionAI: Ling 3.0 Flash Sante",
+   "org": "inclusionai",
+   "input_usd_per_mtok": 0.042,
+   "output_usd_per_mtok": 0.1232,
+   "cache_read_usd_per_mtok": 0.0084,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.8-max-0902",
+   "display": "Qwen: Qwen3.8 Max (0902)",
+   "org": "qwen",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta/muse-spark-1.3-contributor",
+   "display": "Meta: Muse Spark 1.3 Contributor",
+   "org": "meta",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": 0.002,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta/muse-spark-1.3",
+   "display": "Meta: Muse Spark 1.3",
+   "org": "meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.8-flash",
+   "display": "Google: Gemini 3.8 Flash",
+   "org": "google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75,
+   "cache_read_usd_per_mtok": 0.075,
+   "cache_write_usd_per_mtok": 0.0416667,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-fable-5.1",
+   "display": "Anthropic: Claude Fable 5.1",
+   "org": "anthropic",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50,
+   "cache_read_usd_per_mtok": 0.25,
+   "cache_write_usd_per_mtok": 12.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "ibm-granite/granite-4.2-8b",
+   "display": "IBM: Granite 4.2 8B",
+   "org": "ibm-granite",
+   "input_usd_per_mtok": 0.06,
+   "output_usd_per_mtok": 0.25,
+   "cache_read_usd_per_mtok": 0.015,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "tencent/hy4-preview",
+   "display": "Tencent: Hy4 preview",
+   "org": "tencent",
+   "input_usd_per_mtok": 0.834,
+   "output_usd_per_mtok": 2.501,
+   "cache_read_usd_per_mtok": 0.042,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "inclusionai/ling-3.0-flash-fin",
+   "display": "inclusionAI: Ling 3.0 Flash Fin",
+   "org": "inclusionai",
+   "input_usd_per_mtok": 0.042,
+   "output_usd_per_mtok": 0.1232,
+   "cache_read_usd_per_mtok": 0.0084,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.8-flash",
+   "display": "Qwen: Qwen3.8 Flash",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.47,
+   "cache_read_usd_per_mtok": 0.016,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5.3-flash",
+   "display": "Z.ai: GLM 5.3 Flash",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.0261,
+   "output_usd_per_mtok": 0.9,
+   "cache_read_usd_per_mtok": 0.0108,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta/muse-spark-1.2-contributor",
+   "display": "Meta: Muse Spark 1.2 Contributor",
+   "org": "meta",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": 0.002,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v4-flash-vision-exp",
+   "display": "DeepSeek: DeepSeek V4 Flash Vision Exp",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.2156,
+   "output_usd_per_mtok": 0.6468,
+   "cache_read_usd_per_mtok": 0.00686,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "tencent/hy-mt2-1.8b",
+   "display": "Tencent: Hy-MT2-1.8B",
+   "org": "tencent",
+   "input_usd_per_mtok": 0.044,
+   "output_usd_per_mtok": 0.177,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "tencent/hy-mt2-30b-a3b",
+   "display": "Tencent: Hy-MT2-30B-A3B",
+   "org": "tencent",
+   "input_usd_per_mtok": 0.074,
+   "output_usd_per_mtok": 0.295,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "tencent/hy-mt2-7b",
+   "display": "Tencent: Hy-MT2-7B",
+   "org": "tencent",
+   "input_usd_per_mtok": 0.074,
+   "output_usd_per_mtok": 0.295,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5.3",
+   "display": "Z.ai: GLM 5.3",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.079,
+   "output_usd_per_mtok": 4.8,
+   "cache_read_usd_per_mtok": 0.059,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.8-27b",
+   "display": "Qwen: Qwen3.8 27B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.04,
+   "output_usd_per_mtok": 2.3,
+   "cache_read_usd_per_mtok": 0.0198,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.7-flash",
+   "display": "Google: Gemini 3.7 Flash",
+   "org": "google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75,
+   "cache_read_usd_per_mtok": 0.075,
+   "cache_write_usd_per_mtok": 0.0416667,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "bytedance-seed/seed-2-1-turbo",
+   "display": "ByteDance Seed: Seed 2.1 Turbo",
+   "org": "bytedance-seed",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.8-2.4t-a95b",
+   "display": "Qwen: Qwen3.8 2.4T A95B",
+   "org": "qwen",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "bytedance-seed/seed-2.0-code",
+   "display": "ByteDance Seed: Seed-2.0-Code",
+   "org": "bytedance-seed",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v4-pro-0813",
+   "display": "DeepSeek: DeepSeek V4 Pro 0813",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.66,
+   "output_usd_per_mtok": 1.98,
+   "cache_read_usd_per_mtok": 0.022,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "x-ai/grok-4.6",
+   "display": "SpaceXAI: Grok 4.6",
+   "org": "x-ai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nvidia/nemotron-3.5-lightning",
+   "display": "NVIDIA: Nemotron 3.5 Lightning",
+   "org": "nvidia",
+   "input_usd_per_mtok": 0.07,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": 0.04,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "sakana/sakana-namazu",
+   "display": "Sakana: Sakana Namazu",
+   "org": "sakana",
+   "input_usd_per_mtok": 0.95,
+   "output_usd_per_mtok": 4,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "upstage/solar-pro4",
+   "display": "Upstage: Solar Pro 4",
+   "org": "upstage",
+   "input_usd_per_mtok": 0.09,
+   "output_usd_per_mtok": 0.36,
+   "cache_read_usd_per_mtok": 0.018,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta/muse-glimmer-30b",
+   "display": "Meta: Muse Glimmer 30B",
+   "org": "meta",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.04,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta/muse-spark-1.2",
+   "display": "Meta: Muse Spark 1.2",
+   "org": "meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v4-flash-0731",
+   "display": "DeepSeek: DeepSeek V4 Flash 0731",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.016,
+   "output_usd_per_mtok": 0.64,
+   "cache_read_usd_per_mtok": 0.016,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "thinkingmachines/inkling-small",
+   "display": "Thinking Machines: Inkling Small",
+   "org": "thinkingmachines",
+   "input_usd_per_mtok": 0.45,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.7-flash",
+   "display": "Qwen: Qwen3.7 Flash",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.03,
+   "output_usd_per_mtok": 0.13,
+   "cache_read_usd_per_mtok": 0.006,
+   "cache_write_usd_per_mtok": 0.038,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-opus-5",
+   "display": "Anthropic: Claude Opus 5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": 6.25,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "inclusionai/ling-3.0-flash",
+   "display": "inclusionAI: Ling 3.0 Flash",
+   "org": "inclusionai",
+   "input_usd_per_mtok": 0.021,
+   "output_usd_per_mtok": 0.063,
+   "cache_read_usd_per_mtok": 0.0042,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "poolside/laguna-s-2.1",
+   "display": "Poolside: Laguna S 2.1",
+   "org": "poolside",
+   "input_usd_per_mtok": 0.09,
+   "output_usd_per_mtok": 0.18,
+   "cache_read_usd_per_mtok": 0.009,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.6-flash",
+   "display": "Google: Gemini 3.6 Flash",
+   "org": "google",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 3.75,
+   "cache_read_usd_per_mtok": 0.075,
+   "cache_write_usd_per_mtok": 0.0416667,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.5-flash-lite",
+   "display": "Google: Gemini 3.5 Flash Lite",
+   "org": "google",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": 0.0833333,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meituan/longcat-2.0",
+   "display": "Meituan: LongCat 2.0",
+   "org": "meituan",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.006,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "thinkingmachines/inkling",
+   "display": "Thinking Machines: Inkling",
+   "org": "thinkingmachines",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 4.05,
+   "cache_read_usd_per_mtok": 0.17,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "moonshotai/kimi-k3",
+   "display": "MoonshotAI: Kimi K3",
+   "org": "moonshotai",
+   "input_usd_per_mtok": 0.73,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.55,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta/muse-spark-1.1",
+   "display": "Meta: Muse Spark 1.1",
+   "org": "meta",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 4.25,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.6-luna-pro",
+   "display": "OpenAI: GPT-5.6 Luna Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.02,
+   "cache_write_usd_per_mtok": 0.25,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.6-luna",
+   "display": "OpenAI: GPT-5.6 Luna",
+   "org": "openai",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.02,
+   "cache_write_usd_per_mtok": 0.25,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.6-terra-pro",
+   "display": "OpenAI: GPT-5.6 Terra Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.6-terra",
+   "display": "OpenAI: GPT-5.6 Terra",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.6-sol-pro",
+   "display": "OpenAI: GPT-5.6 Sol Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.6-sol",
+   "display": "OpenAI: GPT-5.6 Sol",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "x-ai/grok-4.5",
+   "display": "SpaceXAI: Grok 4.5",
+   "org": "x-ai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.3,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "aion-labs/aion-3.0-mini",
+   "display": "AionLabs: Aion-3.0-Mini",
+   "org": "aion-labs",
+   "input_usd_per_mtok": 0.7,
+   "output_usd_per_mtok": 1.4,
+   "cache_read_usd_per_mtok": 0.18,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "aion-labs/aion-3.0",
+   "display": "AionLabs: Aion-3.0",
+   "org": "aion-labs",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.75,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "tencent/hy3",
+   "display": "Tencent: Hy3",
+   "org": "tencent",
+   "input_usd_per_mtok": 0.132,
+   "output_usd_per_mtok": 0.528,
+   "cache_read_usd_per_mtok": 0.033,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "poolside/laguna-xs-2.1",
+   "display": "Poolside: Laguna XS 2.1",
+   "org": "poolside",
+   "input_usd_per_mtok": 0.06,
+   "output_usd_per_mtok": 0.12,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-sonnet-5",
+   "display": "Anthropic: Claude Sonnet 5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 2.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.1-flash-lite-image",
+   "display": "Google: Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)",
+   "org": "google",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 1.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "sakana/fugu-ultra",
+   "display": "Sakana: Fugu Ultra",
+   "org": "sakana",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.1-flash-image",
+   "display": "Google: Nano Banana 2 (Gemini 3.1 Flash Image)",
+   "org": "google",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3-pro-image",
+   "display": "Google: Nano Banana Pro (Gemini 3 Pro Image)",
+   "org": "google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 0.375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5.2",
+   "display": "Z.ai: GLM 5.2",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.06,
+   "output_usd_per_mtok": 7,
+   "cache_read_usd_per_mtok": 0.059,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "moonshotai/kimi-k2.7-code",
+   "display": "MoonshotAI: Kimi K2.7 Code",
+   "org": "moonshotai",
+   "input_usd_per_mtok": 0.6712,
+   "output_usd_per_mtok": 3.35,
+   "cache_read_usd_per_mtok": 0.18,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-fable-5",
+   "display": "Anthropic: Claude Fable 5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 50,
+   "cache_read_usd_per_mtok": 1,
+   "cache_write_usd_per_mtok": 12.5,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nvidia/nemotron-3.5-content-safety",
+   "display": "NVIDIA: Nemotron 3.5 Content Safety",
+   "org": "nvidia",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nvidia/nemotron-3-ultra-550b-a55b",
+   "display": "NVIDIA: Nemotron 3 Ultra",
+   "org": "nvidia",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 2.4,
+   "cache_read_usd_per_mtok": 0.12,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.7-plus",
+   "display": "Qwen: Qwen3.7 Plus",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.32,
+   "output_usd_per_mtok": 1.28,
+   "cache_read_usd_per_mtok": 0.064,
+   "cache_write_usd_per_mtok": 0.4,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "minimax/minimax-m3",
+   "display": "MiniMax: MiniMax M3",
+   "org": "minimax",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.06,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "stepfun/step-3.7-flash",
+   "display": "StepFun: Step 3.7 Flash",
+   "org": "stepfun",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 1.15,
+   "cache_read_usd_per_mtok": 0.04,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-opus-4.8",
+   "display": "Anthropic: Claude Opus 4.8",
+   "org": "anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": 6.25,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.7-max",
+   "display": "Qwen: Qwen3.7 Max",
+   "org": "qwen",
+   "input_usd_per_mtok": 1.475,
+   "output_usd_per_mtok": 4.425,
+   "cache_read_usd_per_mtok": 0.295,
+   "cache_write_usd_per_mtok": 1.84375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "x-ai/grok-build-0.1",
+   "display": "SpaceXAI: Grok Build 0.1",
+   "org": "x-ai",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.5-flash",
+   "display": "Google: Gemini 3.5 Flash",
+   "org": "google",
+   "input_usd_per_mtok": 1.5,
+   "output_usd_per_mtok": 9,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": 0.0833333,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "perceptron/perceptron-mk1",
+   "display": "Perceptron: Perceptron Mk1",
+   "org": "perceptron",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 1.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.1-flash-lite",
+   "display": "Google: Gemini 3.1 Flash Lite",
+   "org": "google",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 1.5,
+   "cache_read_usd_per_mtok": 0.025,
+   "cache_write_usd_per_mtok": 0.0833333,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-chat-latest",
+   "display": "OpenAI: GPT Chat Latest",
+   "org": "openai",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "x-ai/grok-4.3",
+   "display": "SpaceXAI: Grok 4.3",
+   "org": "x-ai",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-medium-3-5",
+   "display": "Mistral: Mistral Medium 3.5",
+   "org": "mistralai",
+   "input_usd_per_mtok": 1.5,
+   "output_usd_per_mtok": 7.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.5-plus-20260420",
+   "display": "Qwen: Qwen3.5 Plus 2026-04-20",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.8,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": 0.375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.6-flash",
+   "display": "Qwen: Qwen3.6 Flash",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.1875,
+   "output_usd_per_mtok": 1.125,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": 0.234375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.6-35b-a3b",
+   "display": "Qwen: Qwen3.6 35B A3B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.95,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.6-27b",
+   "display": "Qwen: Qwen3.6 27B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.32,
+   "output_usd_per_mtok": 3.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.5-pro",
+   "display": "OpenAI: GPT-5.5 Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 30,
+   "output_usd_per_mtok": 180,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.5",
+   "display": "OpenAI: GPT-5.5",
+   "org": "openai",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 30,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v4-pro",
+   "display": "DeepSeek: DeepSeek V4 Pro 0423",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.41238,
+   "output_usd_per_mtok": 0.82476,
+   "cache_read_usd_per_mtok": 0.034365,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v4-flash",
+   "display": "DeepSeek: DeepSeek V4 Flash 0423",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.0048,
+   "output_usd_per_mtok": 1.28,
+   "cache_read_usd_per_mtok": 0.0048,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "tencent/hy3-preview",
+   "display": "Tencent: Hy3 preview",
+   "org": "tencent",
+   "input_usd_per_mtok": 0.18,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": 0.06,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "xiaomi/mimo-v2.5-pro",
+   "display": "Xiaomi: MiMo-V2.5-Pro",
+   "org": "xiaomi",
+   "input_usd_per_mtok": 0.435,
+   "output_usd_per_mtok": 0.87,
+   "cache_read_usd_per_mtok": 0.0036,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "xiaomi/mimo-v2.5",
+   "display": "Xiaomi: MiMo-V2.5",
+   "org": "xiaomi",
+   "input_usd_per_mtok": 0.14,
+   "output_usd_per_mtok": 0.28,
+   "cache_read_usd_per_mtok": 0.0028,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.4-image-2",
+   "display": "OpenAI: GPT-5.4 Image 2",
+   "org": "openai",
+   "input_usd_per_mtok": 8,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": 2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "moonshotai/kimi-k2.6",
+   "display": "MoonshotAI: Kimi K2.6",
+   "org": "moonshotai",
+   "input_usd_per_mtok": 0.65,
+   "output_usd_per_mtok": 3.41,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-opus-4.7",
+   "display": "Anthropic: Claude Opus 4.7",
+   "org": "anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": 6.25,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5.1",
+   "display": "Z.ai: GLM 5.1",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.966,
+   "output_usd_per_mtok": 3.036,
+   "cache_read_usd_per_mtok": 0.1794,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemma-4-26b-a4b-it",
+   "display": "Google: Gemma 4 26B A4B ",
+   "org": "google",
+   "input_usd_per_mtok": 0.0765,
+   "output_usd_per_mtok": 0.255,
+   "cache_read_usd_per_mtok": 0.0425,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemma-4-31b-it",
+   "display": "Google: Gemma 4 31B",
+   "org": "google",
+   "input_usd_per_mtok": 0.09,
+   "output_usd_per_mtok": 0.34,
+   "cache_read_usd_per_mtok": 0.05,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.6-plus",
+   "display": "Qwen: Qwen3.6 Plus",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.325,
+   "output_usd_per_mtok": 1.95,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": 0.40625,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5v-turbo",
+   "display": "Z.ai: GLM 5V Turbo",
+   "org": "z-ai",
+   "input_usd_per_mtok": 1.2,
+   "output_usd_per_mtok": 4,
+   "cache_read_usd_per_mtok": 0.24,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "arcee-ai/trinity-large-thinking",
+   "display": "Arcee AI: Trinity Large Thinking",
+   "org": "arcee-ai",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 0.8,
+   "cache_read_usd_per_mtok": 0.06,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "x-ai/grok-4.20-multi-agent",
+   "display": "SpaceXAI: Grok 4.20 Multi-Agent",
+   "org": "x-ai",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "x-ai/grok-4.20",
+   "display": "SpaceXAI: Grok 4.20",
+   "org": "x-ai",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "rekaai/reka-edge",
+   "display": "Reka Edge",
+   "org": "rekaai",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.1,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "minimax/minimax-m2.7",
+   "display": "MiniMax: MiniMax M2.7",
+   "org": "minimax",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.06,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.4-nano",
+   "display": "OpenAI: GPT-5.4 Nano",
+   "org": "openai",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 1.25,
+   "cache_read_usd_per_mtok": 0.02,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.4-mini",
+   "display": "OpenAI: GPT-5.4 Mini",
+   "org": "openai",
+   "input_usd_per_mtok": 0.75,
+   "output_usd_per_mtok": 4.5,
+   "cache_read_usd_per_mtok": 0.075,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-small-2603",
+   "display": "Mistral: Mistral Small 4",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": 0.015,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5-turbo",
+   "display": "Z.ai: GLM 5 Turbo",
+   "org": "z-ai",
+   "input_usd_per_mtok": 1.2,
+   "output_usd_per_mtok": 4,
+   "cache_read_usd_per_mtok": 0.24,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nvidia/nemotron-3-super-120b-a12b",
+   "display": "NVIDIA: Nemotron 3 Super",
+   "org": "nvidia",
+   "input_usd_per_mtok": 0.08,
+   "output_usd_per_mtok": 0.45,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "bytedance-seed/seed-2.0-lite",
+   "display": "ByteDance Seed: Seed-2.0-Lite",
+   "org": "bytedance-seed",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.5-9b",
+   "display": "Qwen: Qwen3.5-9B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.15,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.4-pro",
+   "display": "OpenAI: GPT-5.4 Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 30,
+   "output_usd_per_mtok": 180,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.4",
+   "display": "OpenAI: GPT-5.4",
+   "org": "openai",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": 0.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "inception/mercury-2",
+   "display": "Inception: Mercury 2",
+   "org": "inception",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 0.75,
+   "cache_read_usd_per_mtok": 0.025,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.1-flash-lite-preview",
+   "display": "Google: Gemini 3.1 Flash Lite Preview",
+   "org": "google",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 1.5,
+   "cache_read_usd_per_mtok": 0.025,
+   "cache_write_usd_per_mtok": 0.0833333,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "bytedance-seed/seed-2.0-mini",
+   "display": "ByteDance Seed: Seed-2.0-Mini",
+   "org": "bytedance-seed",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.4,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.1-flash-image-preview",
+   "display": "Google: Nano Banana 2 (Gemini 3.1 Flash Image Preview)",
+   "org": "google",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.5-35b-a3b",
+   "display": "Qwen: Qwen3.5-35B-A3B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.08,
+   "output_usd_per_mtok": 0.75,
+   "cache_read_usd_per_mtok": 0.04,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.5-27b",
+   "display": "Qwen: Qwen3.5-27B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.26,
+   "output_usd_per_mtok": 2.6,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.5-122b-a10b",
+   "display": "Qwen: Qwen3.5-122B-A10B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.26,
+   "output_usd_per_mtok": 2.08,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.5-flash-02-23",
+   "display": "Qwen: Qwen3.5-Flash",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.065,
+   "output_usd_per_mtok": 0.26,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.1-pro-preview-customtools",
+   "display": "Google: Gemini 3.1 Pro Preview Custom Tools",
+   "org": "google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 0.375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.3-codex",
+   "display": "OpenAI: GPT-5.3-Codex",
+   "org": "openai",
+   "input_usd_per_mtok": 1.75,
+   "output_usd_per_mtok": 14,
+   "cache_read_usd_per_mtok": 0.175,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "aion-labs/aion-2.0",
+   "display": "AionLabs: Aion-2.0",
+   "org": "aion-labs",
+   "input_usd_per_mtok": 0.8,
+   "output_usd_per_mtok": 1.6,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3.1-pro-preview",
+   "display": "Google: Gemini 3.1 Pro Preview",
+   "org": "google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 0.375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-sonnet-4.6",
+   "display": "Anthropic: Claude Sonnet 4.6",
+   "org": "anthropic",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": 0.3,
+   "cache_write_usd_per_mtok": 3.75,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.5-plus-02-15",
+   "display": "Qwen: Qwen3.5 Plus 2026-02-15",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.26,
+   "output_usd_per_mtok": 1.56,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3.5-397b-a17b",
+   "display": "Qwen: Qwen3.5 397B A17B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.55,
+   "output_usd_per_mtok": 3.5,
+   "cache_read_usd_per_mtok": 0.225,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "minimax/minimax-m2.5",
+   "display": "MiniMax: MiniMax M2.5",
+   "org": "minimax",
+   "input_usd_per_mtok": 0.27,
+   "output_usd_per_mtok": 1.08,
+   "cache_read_usd_per_mtok": 0.027,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-5",
+   "display": "Z.ai: GLM 5",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 1.92,
+   "cache_read_usd_per_mtok": 0.12,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-opus-4.6",
+   "display": "Anthropic: Claude Opus 4.6",
+   "org": "anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": 6.25,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-coder-next",
+   "display": "Qwen: Qwen3 Coder Next",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.12,
+   "output_usd_per_mtok": 0.8,
+   "cache_read_usd_per_mtok": 0.07,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "stepfun/step-3.5-flash",
+   "display": "StepFun: Step 3.5 Flash",
+   "org": "stepfun",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "moonshotai/kimi-k2.5",
+   "display": "MoonshotAI: Kimi K2.5",
+   "org": "moonshotai",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "upstage/solar-pro-3",
+   "display": "Upstage: Solar Pro 3",
+   "org": "upstage",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": 0.015,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "minimax/minimax-m2-her",
+   "display": "MiniMax: MiniMax M2-her",
+   "org": "minimax",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "writer/palmyra-x5",
+   "display": "Writer: Palmyra X5",
+   "org": "writer",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-audio",
+   "display": "OpenAI: GPT Audio",
+   "org": "openai",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-audio-mini",
+   "display": "OpenAI: GPT Audio Mini",
+   "org": "openai",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 2.4,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-4.7-flash",
+   "display": "Z.ai: GLM 4.7 Flash",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.0605,
+   "output_usd_per_mtok": 0.4,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.2-codex",
+   "display": "OpenAI: GPT-5.2-Codex",
+   "org": "openai",
+   "input_usd_per_mtok": 1.75,
+   "output_usd_per_mtok": 14,
+   "cache_read_usd_per_mtok": 0.175,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "bytedance-seed/seed-1.6-flash",
+   "display": "ByteDance Seed: Seed 1.6 Flash",
+   "org": "bytedance-seed",
+   "input_usd_per_mtok": 0.075,
+   "output_usd_per_mtok": 0.3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "bytedance-seed/seed-1.6",
+   "display": "ByteDance Seed: Seed 1.6",
+   "org": "bytedance-seed",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "minimax/minimax-m2.1",
+   "display": "MiniMax: MiniMax M2.1",
+   "org": "minimax",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-4.7",
+   "display": "Z.ai: GLM 4.7",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 2.2,
+   "cache_read_usd_per_mtok": 0.11,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3-flash-preview",
+   "display": "Google: Gemini 3 Flash Preview",
+   "org": "google",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 3,
+   "cache_read_usd_per_mtok": 0.05,
+   "cache_write_usd_per_mtok": 0.0833333,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nvidia/nemotron-3-nano-30b-a3b",
+   "display": "NVIDIA: Nemotron 3 Nano 30B A3B",
+   "org": "nvidia",
+   "input_usd_per_mtok": 0.06,
+   "output_usd_per_mtok": 0.24,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.2-chat",
+   "display": "OpenAI: GPT-5.2 Chat",
+   "org": "openai",
+   "input_usd_per_mtok": 1.75,
+   "output_usd_per_mtok": 14,
+   "cache_read_usd_per_mtok": 0.175,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.2-pro",
+   "display": "OpenAI: GPT-5.2 Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 21,
+   "output_usd_per_mtok": 168,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.2",
+   "display": "OpenAI: GPT-5.2",
+   "org": "openai",
+   "input_usd_per_mtok": 1.75,
+   "output_usd_per_mtok": 14,
+   "cache_read_usd_per_mtok": 0.175,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/devstral-2512",
+   "display": "Mistral: Devstral 2 2512",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": 0.04,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "relace/relace-search",
+   "display": "Relace: Relace Search",
+   "org": "relace",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-4.6v",
+   "display": "Z.ai: GLM 4.6V",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 0.9,
+   "cache_read_usd_per_mtok": 0.055,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.1-codex-max",
+   "display": "OpenAI: GPT-5.1-Codex-Max",
+   "org": "openai",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.125,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "amazon/nova-2-lite-v1",
+   "display": "Amazon: Nova 2 Lite",
+   "org": "amazon",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/ministral-14b-2512",
+   "display": "Mistral: Ministral 3 14B 2512",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": 0.02,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/ministral-8b-2512",
+   "display": "Mistral: Ministral 3 8B 2512",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.15,
+   "cache_read_usd_per_mtok": 0.015,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/ministral-3b-2512",
+   "display": "Mistral: Ministral 3 3B 2512",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.1,
+   "cache_read_usd_per_mtok": 0.01,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-large-2512",
+   "display": "Mistral: Mistral Large 3 2512",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 1.5,
+   "cache_read_usd_per_mtok": 0.05,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v3.2",
+   "display": "DeepSeek: DeepSeek V3.2",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.259,
+   "output_usd_per_mtok": 0.8,
+   "cache_read_usd_per_mtok": 0.14,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-opus-4.5",
+   "display": "Anthropic: Claude Opus 4.5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 25,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": 6.25,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-3-pro-image-preview",
+   "display": "Google: Nano Banana Pro (Gemini 3 Pro Image Preview)",
+   "org": "google",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 12,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": 0.375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.1",
+   "display": "OpenAI: GPT-5.1",
+   "org": "openai",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.125,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.1-codex",
+   "display": "OpenAI: GPT-5.1-Codex",
+   "org": "openai",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.13,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5.1-codex-mini",
+   "display": "OpenAI: GPT-5.1-Codex-Mini",
+   "org": "openai",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "moonshotai/kimi-k2-thinking",
+   "display": "MoonshotAI: Kimi K2 Thinking",
+   "org": "moonshotai",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "amazon/nova-premier-v1",
+   "display": "Amazon: Nova Premier 1.0",
+   "org": "amazon",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 12.5,
+   "cache_read_usd_per_mtok": 0.625,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "perplexity/sonar-pro-search",
+   "display": "Perplexity: Sonar Pro Search",
+   "org": "perplexity",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/voxtral-small-24b-2507",
+   "display": "Mistral: Voxtral Small 24B 2507",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.3,
+   "cache_read_usd_per_mtok": 0.01,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-oss-safeguard-20b",
+   "display": "OpenAI: gpt-oss-safeguard-20b",
+   "org": "openai",
+   "input_usd_per_mtok": 0.075,
+   "output_usd_per_mtok": 0.3,
+   "cache_read_usd_per_mtok": 0.0375,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "minimax/minimax-m2",
+   "display": "MiniMax: MiniMax M2",
+   "org": "minimax",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "ibm-granite/granite-4.0-h-micro",
+   "display": "IBM: Granite 4.0 Micro",
+   "org": "ibm-granite",
+   "input_usd_per_mtok": 0.017,
+   "output_usd_per_mtok": 0.112,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5-image-mini",
+   "display": "OpenAI: GPT-5 Image Mini",
+   "org": "openai",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": 0.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-haiku-4.5",
+   "display": "Anthropic: Claude Haiku 4.5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 5,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": 1.25,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-vl-8b-instruct",
+   "display": "Qwen: Qwen3 VL 8B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 0.75,
+   "cache_read_usd_per_mtok": 0.12,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5-image",
+   "display": "OpenAI: GPT-5 Image",
+   "org": "openai",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 1.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-2.5-flash-image",
+   "display": "Google: Nano Banana (Gemini 2.5 Flash Image)",
+   "org": "google",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": 0.0833333,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-vl-30b-a3b-thinking",
+   "display": "Qwen: Qwen3 VL 30B A3B Thinking",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.29,
+   "output_usd_per_mtok": 1,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-vl-30b-a3b-instruct",
+   "display": "Qwen: Qwen3 VL 30B A3B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5-pro",
+   "display": "OpenAI: GPT-5 Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 15,
+   "output_usd_per_mtok": 120,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-4.6",
+   "display": "Z.ai: GLM 4.6",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-sonnet-4.5",
+   "display": "Anthropic: Claude Sonnet 4.5",
+   "org": "anthropic",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": 0.3,
+   "cache_write_usd_per_mtok": 3.75,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v3.2-exp",
+   "display": "DeepSeek: DeepSeek V3.2 Exp",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.27,
+   "output_usd_per_mtok": 0.41,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "thedrummer/cydonia-24b-v4.1",
+   "display": "TheDrummer: Cydonia 24B V4.1",
+   "org": "thedrummer",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 0.5,
+   "cache_read_usd_per_mtok": 0.15,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "relace/relace-apply-3",
+   "display": "Relace: Relace Apply 3",
+   "org": "relace",
+   "input_usd_per_mtok": 0.85,
+   "output_usd_per_mtok": 1.25,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-vl-235b-a22b-instruct",
+   "display": "Qwen: Qwen3 VL 235B A22B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.21,
+   "output_usd_per_mtok": 1.9,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-v3.1-terminus",
+   "display": "DeepSeek: DeepSeek V3.1 Terminus",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.27,
+   "output_usd_per_mtok": 1,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-coder-flash",
+   "display": "Qwen: Qwen3 Coder Flash",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.195,
+   "output_usd_per_mtok": 0.975,
+   "cache_read_usd_per_mtok": 0.039,
+   "cache_write_usd_per_mtok": 0.24375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-next-80b-a3b-thinking",
+   "display": "Qwen: Qwen3 Next 80B A3B Thinking",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-next-80b-a3b-instruct",
+   "display": "Qwen: Qwen3 Next 80B A3B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 1.1,
+   "cache_read_usd_per_mtok": 0.07,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "moonshotai/kimi-k2-0905",
+   "display": "MoonshotAI: Kimi K2 0905",
+   "org": "moonshotai",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nousresearch/hermes-4-405b",
+   "display": "Nous: Hermes 4 405B",
+   "org": "nousresearch",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-chat-v3.1",
+   "display": "DeepSeek: DeepSeek V3.1",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 0.95,
+   "cache_read_usd_per_mtok": 0.13,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-medium-3.1",
+   "display": "Mistral: Mistral Medium 3.1",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": 0.04,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-4.5v",
+   "display": "Z.ai: GLM 4.5V",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 1.8,
+   "cache_read_usd_per_mtok": 0.11,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5",
+   "display": "OpenAI: GPT-5",
+   "org": "openai",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.125,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5-mini",
+   "display": "OpenAI: GPT-5 Mini",
+   "org": "openai",
+   "input_usd_per_mtok": 0.25,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": 0.025,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-5-nano",
+   "display": "OpenAI: GPT-5 Nano",
+   "org": "openai",
+   "input_usd_per_mtok": 0.05,
+   "output_usd_per_mtok": 0.4,
+   "cache_read_usd_per_mtok": 0.005,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-oss-120b",
+   "display": "OpenAI: gpt-oss-120b",
+   "org": "openai",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": 0.075,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-oss-20b",
+   "display": "OpenAI: gpt-oss-20b",
+   "org": "openai",
+   "input_usd_per_mtok": 0.018,
+   "output_usd_per_mtok": 0.09,
+   "cache_read_usd_per_mtok": 0.009,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-opus-4.1",
+   "display": "Anthropic: Claude Opus 4.1",
+   "org": "anthropic",
+   "input_usd_per_mtok": 15,
+   "output_usd_per_mtok": 75,
+   "cache_read_usd_per_mtok": 1.5,
+   "cache_write_usd_per_mtok": 18.75,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/codestral-2508",
+   "display": "Mistral: Codestral 2508",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 0.9,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-coder-30b-a3b-instruct",
+   "display": "Qwen: Qwen3 Coder 30B A3B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.07,
+   "output_usd_per_mtok": 0.28,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-30b-a3b-instruct-2507",
+   "display": "Qwen: Qwen3 30B A3B Instruct 2507",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-4.5",
+   "display": "Z.ai: GLM 4.5",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.6,
+   "output_usd_per_mtok": 2.2,
+   "cache_read_usd_per_mtok": 0.11,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "z-ai/glm-4.5-air",
+   "display": "Z.ai: GLM 4.5 Air",
+   "org": "z-ai",
+   "input_usd_per_mtok": 0.13,
+   "output_usd_per_mtok": 0.85,
+   "cache_read_usd_per_mtok": 0.025,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-235b-a22b-thinking-2507",
+   "display": "Qwen: Qwen3 235B A22B Thinking 2507",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.45,
+   "output_usd_per_mtok": 3.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-coder",
+   "display": "Qwen: Qwen3 Coder 480B A35B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 1,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "bytedance/ui-tars-1.5-7b",
+   "display": "ByteDance: UI-TARS 7B ",
+   "org": "bytedance",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-2.5-flash-lite",
+   "display": "Google: Gemini 2.5 Flash Lite",
+   "org": "google",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.4,
+   "cache_read_usd_per_mtok": 0.01,
+   "cache_write_usd_per_mtok": 0.0833333,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-235b-a22b-2507",
+   "display": "Qwen: Qwen3 235B A22B Instruct 2507",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.09,
+   "output_usd_per_mtok": 0.55,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "moonshotai/kimi-k2",
+   "display": "MoonshotAI: Kimi K2 0711",
+   "org": "moonshotai",
+   "input_usd_per_mtok": 0.57,
+   "output_usd_per_mtok": 2.3,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "cognitivecomputations/dolphin-mistral-24b-venice-edition",
+   "display": "Venice: Uncensored",
+   "org": "cognitivecomputations",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 0.9,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "tencent/hunyuan-a13b-instruct",
+   "display": "Tencent: Hunyuan A13B Instruct",
+   "org": "tencent",
+   "input_usd_per_mtok": 0.14,
+   "output_usd_per_mtok": 0.57,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "morph/morph-v3-large",
+   "display": "Morph: Morph V3 Large",
+   "org": "morph",
+   "input_usd_per_mtok": 0.9,
+   "output_usd_per_mtok": 1.9,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "morph/morph-v3-fast",
+   "display": "Morph: Morph V3 Fast",
+   "org": "morph",
+   "input_usd_per_mtok": 0.8,
+   "output_usd_per_mtok": 1.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-small-3.2-24b-instruct",
+   "display": "Mistral: Mistral Small 3.2 24B",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.09375,
+   "output_usd_per_mtok": 0.25,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "minimax/minimax-m1",
+   "display": "MiniMax: MiniMax M1",
+   "org": "minimax",
+   "input_usd_per_mtok": 0.55,
+   "output_usd_per_mtok": 2.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-2.5-flash",
+   "display": "Google: Gemini 2.5 Flash",
+   "org": "google",
+   "input_usd_per_mtok": 0.3,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": 0.0833333,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-2.5-pro",
+   "display": "Google: Gemini 2.5 Pro",
+   "org": "google",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.125,
+   "cache_write_usd_per_mtok": 0.375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/o3-pro",
+   "display": "OpenAI: o3 Pro",
+   "org": "openai",
+   "input_usd_per_mtok": 20,
+   "output_usd_per_mtok": 80,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemini-2.5-pro-preview",
+   "display": "Google: Gemini 2.5 Pro Preview 06-05",
+   "org": "google",
+   "input_usd_per_mtok": 1.25,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 0.125,
+   "cache_write_usd_per_mtok": 0.375,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-r1-0528",
+   "display": "DeepSeek: R1 0528",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 2.15,
+   "cache_read_usd_per_mtok": 0.35,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthropic/claude-sonnet-4",
+   "display": "Anthropic: Claude Sonnet 4",
+   "org": "anthropic",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": 0.3,
+   "cache_write_usd_per_mtok": 3.75,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-medium-3",
+   "display": "Mistral: Mistral Medium 3",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": 0.04,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta-llama/llama-guard-4-12b",
+   "display": "Meta: Llama Guard 4 12B",
+   "org": "meta-llama",
+   "input_usd_per_mtok": 0.18,
+   "output_usd_per_mtok": 0.18,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-30b-a3b",
+   "display": "Qwen: Qwen3 30B A3B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.12,
+   "output_usd_per_mtok": 0.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-14b",
+   "display": "Qwen: Qwen3 14B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.12,
+   "output_usd_per_mtok": 0.24,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen3-32b",
+   "display": "Qwen: Qwen3 32B",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.08,
+   "output_usd_per_mtok": 0.28,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/o4-mini-high",
+   "display": "OpenAI: o4 Mini High",
+   "org": "openai",
+   "input_usd_per_mtok": 1.1,
+   "output_usd_per_mtok": 4.4,
+   "cache_read_usd_per_mtok": 0.275,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/o3",
+   "display": "OpenAI: o3",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 8,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/o4-mini",
+   "display": "OpenAI: o4 Mini",
+   "org": "openai",
+   "input_usd_per_mtok": 1.1,
+   "output_usd_per_mtok": 4.4,
+   "cache_read_usd_per_mtok": 0.275,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4.1",
+   "display": "OpenAI: GPT-4.1",
+   "org": "openai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 8,
+   "cache_read_usd_per_mtok": 0.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4.1-mini",
+   "display": "OpenAI: GPT-4.1 Mini",
+   "org": "openai",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 1.6,
+   "cache_read_usd_per_mtok": 0.1,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4.1-nano",
+   "display": "OpenAI: GPT-4.1 Nano",
+   "org": "openai",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.4,
+   "cache_read_usd_per_mtok": 0.025,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta-llama/llama-4-maverick",
+   "display": "Meta: Llama 4 Maverick",
+   "org": "meta-llama",
+   "input_usd_per_mtok": 0.1875,
+   "output_usd_per_mtok": 0.6525,
+   "cache_read_usd_per_mtok": 0.05,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta-llama/llama-4-scout",
+   "display": "Meta: Llama 4 Scout",
+   "org": "meta-llama",
+   "input_usd_per_mtok": 0.18,
+   "output_usd_per_mtok": 0.59,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-chat-v3-0324",
+   "display": "DeepSeek: DeepSeek V3 0324",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.29,
+   "output_usd_per_mtok": 1.14,
+   "cache_read_usd_per_mtok": 0.11,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/o1-pro",
+   "display": "OpenAI: o1-pro",
+   "org": "openai",
+   "input_usd_per_mtok": 150,
+   "output_usd_per_mtok": 600,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-small-3.1-24b-instruct",
+   "display": "Mistral: Mistral Small 3.1 24B",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.351,
+   "output_usd_per_mtok": 0.555,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemma-3-4b-it",
+   "display": "Google: Gemma 3 4B",
+   "org": "google",
+   "input_usd_per_mtok": 0.05,
+   "output_usd_per_mtok": 0.1,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemma-3-12b-it",
+   "display": "Google: Gemma 3 12B",
+   "org": "google",
+   "input_usd_per_mtok": 0.05,
+   "output_usd_per_mtok": 0.15,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "cohere/command-a",
+   "display": "Cohere: Command A",
+   "org": "cohere",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "rekaai/reka-flash-3",
+   "display": "Reka Flash 3",
+   "org": "rekaai",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemma-3-27b-it",
+   "display": "Google: Gemma 3 27B",
+   "org": "google",
+   "input_usd_per_mtok": 0.08,
+   "output_usd_per_mtok": 0.45,
+   "cache_read_usd_per_mtok": 0.04,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "thedrummer/skyfall-36b-v2",
+   "display": "TheDrummer: Skyfall 36B V2",
+   "org": "thedrummer",
+   "input_usd_per_mtok": 0.55,
+   "output_usd_per_mtok": 0.8,
+   "cache_read_usd_per_mtok": 0.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "perplexity/sonar-reasoning-pro",
+   "display": "Perplexity: Sonar Reasoning Pro",
+   "org": "perplexity",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 8,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "perplexity/sonar-pro",
+   "display": "Perplexity: Sonar Pro",
+   "org": "perplexity",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "perplexity/sonar-deep-research",
+   "display": "Perplexity: Sonar Deep Research",
+   "org": "perplexity",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 8,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-saba",
+   "display": "Mistral: Saba",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": 0.02,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/o3-mini-high",
+   "display": "OpenAI: o3 Mini High",
+   "org": "openai",
+   "input_usd_per_mtok": 1.1,
+   "output_usd_per_mtok": 4.4,
+   "cache_read_usd_per_mtok": 0.55,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "aion-labs/aion-rp-llama-3.1-8b",
+   "display": "AionLabs: Aion-RP 1.0 (8B)",
+   "org": "aion-labs",
+   "input_usd_per_mtok": 0.8,
+   "output_usd_per_mtok": 1.6,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen2.5-vl-72b-instruct",
+   "display": "Qwen: Qwen2.5 VL 72B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.8,
+   "output_usd_per_mtok": 1,
+   "cache_read_usd_per_mtok": 0.4,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen-plus",
+   "display": "Qwen: Qwen-Plus",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.26,
+   "output_usd_per_mtok": 0.78,
+   "cache_read_usd_per_mtok": 0.052,
+   "cache_write_usd_per_mtok": 0.325,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/o3-mini",
+   "display": "OpenAI: o3 Mini",
+   "org": "openai",
+   "input_usd_per_mtok": 1.1,
+   "output_usd_per_mtok": 4.4,
+   "cache_read_usd_per_mtok": 0.55,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-small-24b-instruct-2501",
+   "display": "Mistral: Mistral Small 3",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.05,
+   "output_usd_per_mtok": 0.08,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "perplexity/sonar",
+   "display": "Perplexity: Sonar",
+   "org": "perplexity",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 1,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-r1",
+   "display": "DeepSeek: R1",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.7,
+   "output_usd_per_mtok": 2.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "minimax/minimax-01",
+   "display": "MiniMax: MiniMax-01",
+   "org": "minimax",
+   "input_usd_per_mtok": 0.2,
+   "output_usd_per_mtok": 1.1,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "microsoft/phi-4",
+   "display": "Microsoft: Phi 4",
+   "org": "microsoft",
+   "input_usd_per_mtok": 0.07,
+   "output_usd_per_mtok": 0.14,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "deepseek/deepseek-chat",
+   "display": "DeepSeek: DeepSeek V3",
+   "org": "deepseek",
+   "input_usd_per_mtok": 0.32,
+   "output_usd_per_mtok": 0.89,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "sao10k/l3.3-euryale-70b",
+   "display": "Sao10K: Llama 3.3 Euryale 70B",
+   "org": "sao10k",
+   "input_usd_per_mtok": 0.65,
+   "output_usd_per_mtok": 0.75,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/o1",
+   "display": "OpenAI: o1",
+   "org": "openai",
+   "input_usd_per_mtok": 15,
+   "output_usd_per_mtok": 60,
+   "cache_read_usd_per_mtok": 7.5,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "cohere/command-r7b-12-2024",
+   "display": "Cohere: Command R7B (12-2024)",
+   "org": "cohere",
+   "input_usd_per_mtok": 0.0375,
+   "output_usd_per_mtok": 0.15,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta-llama/llama-3.3-70b-instruct",
+   "display": "Meta: Llama 3.3 70B Instruct",
+   "org": "meta-llama",
+   "input_usd_per_mtok": 0.59,
+   "output_usd_per_mtok": 0.79,
+   "cache_read_usd_per_mtok": 0.295,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "amazon/nova-lite-v1",
+   "display": "Amazon: Nova Lite 1.0",
+   "org": "amazon",
+   "input_usd_per_mtok": 0.06,
+   "output_usd_per_mtok": 0.24,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "amazon/nova-micro-v1",
+   "display": "Amazon: Nova Micro 1.0",
+   "org": "amazon",
+   "input_usd_per_mtok": 0.035,
+   "output_usd_per_mtok": 0.14,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "amazon/nova-pro-v1",
+   "display": "Amazon: Nova Pro 1.0",
+   "org": "amazon",
+   "input_usd_per_mtok": 0.8,
+   "output_usd_per_mtok": 3.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4o-2024-11-20",
+   "display": "OpenAI: GPT-4o (2024-11-20)",
+   "org": "openai",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 1.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-large-2407",
+   "display": "Mistral Large 2407",
+   "org": "mistralai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen-2.5-coder-32b-instruct",
+   "display": "Qwen2.5 Coder 32B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.66,
+   "output_usd_per_mtok": 1,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "thedrummer/unslopnemo-12b",
+   "display": "TheDrummer: UnslopNemo 12B",
+   "org": "thedrummer",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 0.4,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "anthracite-org/magnum-v4-72b",
+   "display": "Magnum v4 72B",
+   "org": "anthracite-org",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen-2.5-7b-instruct",
+   "display": "Qwen: Qwen2.5 7B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.1,
+   "output_usd_per_mtok": 0.2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta-llama/llama-3.2-1b-instruct",
+   "display": "Meta: Llama 3.2 1B Instruct",
+   "org": "meta-llama",
+   "input_usd_per_mtok": 0.027,
+   "output_usd_per_mtok": 0.201,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta-llama/llama-3.2-3b-instruct",
+   "display": "Meta: Llama 3.2 3B Instruct",
+   "org": "meta-llama",
+   "input_usd_per_mtok": 0.05,
+   "output_usd_per_mtok": 0.33,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "qwen/qwen-2.5-72b-instruct",
+   "display": "Qwen2.5 72B Instruct",
+   "org": "qwen",
+   "input_usd_per_mtok": 0.36,
+   "output_usd_per_mtok": 0.4,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "cohere/command-r-08-2024",
+   "display": "Cohere: Command R (08-2024)",
+   "org": "cohere",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "cohere/command-r-plus-08-2024",
+   "display": "Cohere: Command R+ (08-2024)",
+   "org": "cohere",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "sao10k/l3.1-euryale-70b",
+   "display": "Sao10K: Llama 3.1 Euryale 70B v2.2",
+   "org": "sao10k",
+   "input_usd_per_mtok": 0.85,
+   "output_usd_per_mtok": 0.85,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nousresearch/hermes-3-llama-3.1-70b",
+   "display": "Nous: Hermes 3 70B Instruct",
+   "org": "nousresearch",
+   "input_usd_per_mtok": 0.7,
+   "output_usd_per_mtok": 0.7,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "nousresearch/hermes-3-llama-3.1-405b",
+   "display": "Nous: Hermes 3 405B Instruct",
+   "org": "nousresearch",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 1,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "sao10k/l3-lunaris-8b",
+   "display": "Sao10K: Llama 3 8B Lunaris",
+   "org": "sao10k",
+   "input_usd_per_mtok": 0.04,
+   "output_usd_per_mtok": 0.05,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4o-2024-08-06",
+   "display": "OpenAI: GPT-4o (2024-08-06)",
+   "org": "openai",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 1.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta-llama/llama-3.1-70b-instruct",
+   "display": "Meta: Llama 3.1 70B Instruct",
+   "org": "meta-llama",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 0.4,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "meta-llama/llama-3.1-8b-instruct",
+   "display": "Meta: Llama 3.1 8B Instruct",
+   "org": "meta-llama",
+   "input_usd_per_mtok": 0.05,
+   "output_usd_per_mtok": 0.08,
+   "cache_read_usd_per_mtok": 0.025,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-nemo",
+   "display": "Mistral: Mistral Nemo",
+   "org": "mistralai",
+   "input_usd_per_mtok": 0.029,
+   "output_usd_per_mtok": 0.03,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4o-mini",
+   "display": "OpenAI: GPT-4o-mini",
+   "org": "openai",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": 0.075,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4o-mini-2024-07-18",
+   "display": "OpenAI: GPT-4o-mini (2024-07-18)",
+   "org": "openai",
+   "input_usd_per_mtok": 0.15,
+   "output_usd_per_mtok": 0.6,
+   "cache_read_usd_per_mtok": 0.075,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "google/gemma-2-27b-it",
+   "display": "Google: Gemma 2 27B",
+   "org": "google",
+   "input_usd_per_mtok": 0.65,
+   "output_usd_per_mtok": 0.65,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4o",
+   "display": "OpenAI: GPT-4o",
+   "org": "openai",
+   "input_usd_per_mtok": 2.5,
+   "output_usd_per_mtok": 10,
+   "cache_read_usd_per_mtok": 1.25,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4o-2024-05-13",
+   "display": "OpenAI: GPT-4o (2024-05-13)",
+   "org": "openai",
+   "input_usd_per_mtok": 5,
+   "output_usd_per_mtok": 15,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mixtral-8x22b-instruct",
+   "display": "Mistral: Mixtral 8x22B Instruct",
+   "org": "mistralai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "microsoft/wizardlm-2-8x22b",
+   "display": "WizardLM-2 8x22B",
+   "org": "microsoft",
+   "input_usd_per_mtok": 0.62,
+   "output_usd_per_mtok": 0.62,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4-turbo",
+   "display": "OpenAI: GPT-4 Turbo",
+   "org": "openai",
+   "input_usd_per_mtok": 10,
+   "output_usd_per_mtok": 30,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mistralai/mistral-large",
+   "display": "Mistral Large",
+   "org": "mistralai",
+   "input_usd_per_mtok": 2,
+   "output_usd_per_mtok": 6,
+   "cache_read_usd_per_mtok": 0.2,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-3.5-turbo-0613",
+   "display": "OpenAI: GPT-3.5 Turbo (older v0613)",
+   "org": "openai",
+   "input_usd_per_mtok": 1,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-3.5-turbo-instruct",
+   "display": "OpenAI: GPT-3.5 Turbo Instruct",
+   "org": "openai",
+   "input_usd_per_mtok": 1.5,
+   "output_usd_per_mtok": 2,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-3.5-turbo-16k",
+   "display": "OpenAI: GPT-3.5 Turbo 16k",
+   "org": "openai",
+   "input_usd_per_mtok": 3,
+   "output_usd_per_mtok": 4,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "mancer/weaver",
+   "display": "Mancer: Weaver (alpha)",
+   "org": "mancer",
+   "input_usd_per_mtok": 0.4,
+   "output_usd_per_mtok": 0.75,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "undi95/remm-slerp-l2-13b",
+   "display": "ReMM SLERP 13B",
+   "org": "undi95",
+   "input_usd_per_mtok": 0.35,
+   "output_usd_per_mtok": 0.65,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "gryphe/mythomax-l2-13b",
+   "display": "MythoMax 13B",
+   "org": "gryphe",
+   "input_usd_per_mtok": 0.08,
+   "output_usd_per_mtok": 0.11,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-3.5-turbo",
+   "display": "OpenAI: GPT-3.5 Turbo",
+   "org": "openai",
+   "input_usd_per_mtok": 0.5,
+   "output_usd_per_mtok": 1.5,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  },
+  {
+   "model_key": "openai/gpt-4",
+   "display": "OpenAI: GPT-4",
+   "org": "openai",
+   "input_usd_per_mtok": 30,
+   "output_usd_per_mtok": 60,
+   "cache_read_usd_per_mtok": null,
+   "cache_write_usd_per_mtok": null,
+   "source": "openrouter-public"
+  }
+ ]
+}

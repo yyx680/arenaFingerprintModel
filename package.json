@@ -1,9 +1,11 @@
 {
   "name": "arena-model-probe-standalone",
   "private": true,
-  "version": "2.9.25",
+  "version": "2.19.9",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "check:cost-fields": "node tools/check-cost-fields.mjs",
+    "package": "node tools/package.mjs"
   }
 }

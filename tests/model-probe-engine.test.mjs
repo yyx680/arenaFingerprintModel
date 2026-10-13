@@ -13,7 +13,6 @@ import {
 
 const root = new URL('../', import.meta.url);
 const bank = JSON.parse(await readFile(new URL('modeltrace-bank.json', root), 'utf8'));
-const fixture = JSON.parse(await readFile(new URL('tests/fixtures/gpt-6-astra-three.json', root), 'utf8'));
 
 test('bundled ModelTrace bank passes structural validation', () => {
   assert.equal(validateBank(bank), bank);
@@ -62,8 +61,11 @@ test('duplicate replies cannot count as independent evidence', () => {
   assert.equal(prepared.usable.length, 1);
 });
 
-test('three held-out-style GPT-6 Astra references score back to GPT-6 Astra', () => {
-  const prepared = prepareOutputs(fixture);
+/* 该用例依赖 `tests/fixtures/gpt-6-astra-three.json` —— 三条**真实捕获**的 GPT-6 Astra
+   probe 输出（held-out 参考样本）。fixtures 目录已丢失，样本无法从 bank 反推
+   （bank 存的是数值分布 conditions，不是原始响应文本），因此保持 skip 而非伪造数据。 */
+test('three held-out-style GPT-6 Astra references score back to GPT-6 Astra', {skip: 'fixture tests/fixtures/gpt-6-astra-three.json 缺失，待重新捕获真实样本后启用'}, () => {
+  const prepared = prepareOutputs([]);
   assert.deepEqual(prepared.checks.map(item => item.level), ['ok', 'ok', 'ok']);
   const result = identifyPrepared(prepared, bank);
   assert.equal(result.nearest.id, 'gpt-6-astra');
