@@ -36,7 +36,7 @@ const VERSION = manifest.version;
 /* ---------- 1. 自动发现运行时依赖 ---------- */
 
 const files = new Set();
-const add = name => { if (name && !files.has(name)) { files.add(name); return true; } return false; };
+const add = value => { const name = String(value || '').replace(/^\/+/, ''); if (name && !files.has(name)) { files.add(name); return true; } return false; };
 
 /* 1a. manifest 直接引用 */
 add('manifest.json');
@@ -47,6 +47,18 @@ if (popupHtml) {
   add(popupHtml);
   /* popup.html 里的 <script src> / <link href> 也是运行时依赖。 */
   for (const m of read(popupHtml).matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)) add(m[1]);
+}
+
+/* Buster has dynamic model/WASM assets and a separate options page. */
+const embedsBuster = (manifest.content_scripts || []).some(cs => (cs.js || []).includes('buster/src/base/script.js'));
+const busterCatalog = embedsBuster ? JSON.parse(read('buster/runtime-files.json')) : null;
+if (busterCatalog) {
+  add('buster/runtime-files.json');
+  add(manifest.options_ui?.page);
+  for (const name of busterCatalog.runtimeFiles || []) {
+    if (!/^(?:buster|_locales)\//.test(name) || name.split('/').includes('..')) throw Error('Invalid Buster runtime asset: ' + name);
+    add(name);
+  }
 }
 
 /* 1b. 传递闭包：静态 import + getURL + new URL(relative, import.meta.url) */
@@ -62,7 +74,11 @@ while (queue.length) {
 
 /* 1c. 第三方许可 —— `modeltrace-bank.json` / `modeltrace-core.js` 是 MIT 第三方文件
    （见 THIRD_PARTY_NOTICES.md），分发时必须随附许可原文。 */
-const LICENSE_FILES = ['THIRD_PARTY_NOTICES.md', 'LICENSE-ModelTrace'];
+const LICENSE_FILES = ['THIRD_PARTY_NOTICES.md', 'LICENSE-ModelTrace', 'LICENSE', 'README_BUSTER.md'];
+if (busterCatalog) for (const name of busterCatalog.correspondingSource || []) {
+  if (!(name.startsWith('vendor/buster/') || name === 'tools/integrate-buster.mjs') || name.split('/').includes('..')) throw Error('Invalid Buster source asset: ' + name);
+  add(name);
+}
 for (const name of LICENSE_FILES) if (exists(name)) add(name);
 
 /* ---------- 2. 完整性校验 ---------- */

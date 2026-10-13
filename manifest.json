@@ -4,11 +4,16 @@
   "version": "2.19.9",
   "author": "Vodka",
   "description": "Arena 模型识别工具：支持价格指纹、数字指纹与组合排序，提供会话账单、可选按最接近候选改名、连续抽卡和每日额度查询。",
-  "minimum_chrome_version": "118",
+  "minimum_chrome_version": "123",
   "permissions": [
     "activeTab",
     "storage",
-    "webRequest"
+    "webRequest",
+    "notifications",
+    "offscreen",
+    "scripting",
+    "webNavigation",
+    "declarativeNetRequestWithHostAccess"
   ],
   "optional_permissions": [
     "debugger"
@@ -16,14 +21,26 @@
   "host_permissions": [
     "https://arena.ai/*",
     "https://canary.arena.ai/*",
-    "https://api.trigger.dev/*"
+    "https://api.trigger.dev/*",
+    "https://google.com/*",
+    "https://www.google.com/*",
+    "https://recaptcha.net/*",
+    "https://www.recaptcha.net/*",
+    "https://huggingface.co/*",
+    "https://*.huggingface.co/*",
+    "https://*.hf.co/*",
+    "https://speech.googleapis.com/*",
+    "https://api.wit.ai/*",
+    "https://*.stt.speech.microsoft.com/*",
+    "https://iam.cloud.ibm.com/*",
+    "https://*.speech-to-text.watson.cloud.ibm.com/*"
   ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://whatsmyllm.com https://arena.ai https://canary.arena.ai https://api.trigger.dev"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; object-src 'self'; connect-src 'self' https://whatsmyllm.com https://arena.ai https://canary.arena.ai https://api.trigger.dev https://google.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://speech.googleapis.com https://api.wit.ai https://*.stt.speech.microsoft.com https://iam.cloud.ibm.com https://*.speech-to-text.watson.cloud.ibm.com wss://*.speech-to-text.watson.cloud.ibm.com"
   },
   "action": {
     "default_popup": "popup.html",
@@ -53,6 +70,42 @@
         "content.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.google.com/recaptcha/api2/bframe*",
+        "https://www.google.com/recaptcha/enterprise/bframe*",
+        "https://google.com/recaptcha/api2/bframe*",
+        "https://google.com/recaptcha/enterprise/bframe*",
+        "https://www.recaptcha.net/recaptcha/api2/bframe*",
+        "https://www.recaptcha.net/recaptcha/enterprise/bframe*",
+        "https://recaptcha.net/recaptcha/api2/bframe*",
+        "https://recaptcha.net/recaptcha/enterprise/bframe*"
+      ],
+      "js": [
+        "buster/src/base/script.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "default_locale": "en",
+  "options_ui": {
+    "page": "buster/src/options/index.html",
+    "open_in_tab": true
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "buster/src/base/solver-button.css",
+        "buster/src/scripts/reset.js"
+      ],
+      "matches": [
+        "https://www.google.com/*",
+        "https://google.com/*",
+        "https://www.recaptcha.net/*",
+        "https://recaptcha.net/*"
+      ]
     }
   ]
 }

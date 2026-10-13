@@ -9,6 +9,8 @@ import {normalizePricingTable, applyCacheRates, mergeOpenRouterPrices, pricingSu
 import {parseUsage, usageShape, describeUsage, sumUsage, latestUsage} from './usage-channel.js';
 import {buildLedger, ledgerRowsFromCostMessages, ledgerRowsFromEstimates, ledgerTotals, pairCostWithEstimates, LEDGER_SCHEMA, samePriceGroups, tokenRatioText, describeTotals, formatUsd} from './cost-ledger.js';
 import './text-channel.js';
+// Embedded manual reCAPTCHA audio assistance (GPL-3.0-only), separate from AMP routing.
+import './buster/src/background/script.js';
 
 const EXPECTED = [297, 315, 331];
 /* v2.9.3 文本词频通道存储键（已知模型建档的第二条腿：BoW 词频参考库）。 */

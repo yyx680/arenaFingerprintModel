@@ -1,6 +1,7 @@
 {
   "name": "arena-model-probe-standalone",
   "private": true,
+  "license": "GPL-3.0-only",
   "version": "2.19.9",
   "type": "module",
   "scripts": {

@@ -532,10 +532,24 @@
   }
   function publish(nextPhase,text,record=null){if(record&&session()&&records.get(session())!==record)return;phase=nextPhase;progress=text;if(record){record.phase=nextPhase;record.progress=text;}paint();}
   function publishDraw(nextPhase,text){draw.phase=nextPhase;draw.note=text;progress=text;paint();}
+  function visibleRecaptchaChallenge(expectedUrl=null){
+    return Array.from(document.querySelectorAll('iframe')).some(frame=>{
+      try{
+        const url=new URL(frame.getAttribute('src')||'',location.href);
+        if(url.protocol!=='https:'||!['google.com','www.google.com','recaptcha.net','www.recaptcha.net'].includes(url.hostname)||!/^\/recaptcha\/(?:api2|enterprise)\/bframe$/.test(url.pathname))return false;
+        if(expectedUrl){const expected=new URL(expectedUrl);expected.hash='';url.hash='';if(expected.href!==url.href)return false;}
+        const rect=frame.getBoundingClientRect();
+        if(rect.width<10||rect.height<10||rect.bottom<=0||rect.right<=0||rect.top>=innerHeight||rect.left>=innerWidth)return false;
+        for(let node=frame;node instanceof Element;node=node.parentElement){const style=getComputedStyle(node);if(node.hidden||style.display==='none'||style.visibility==='hidden'||Number(style.opacity)===0)return false;}
+        return true;
+      }catch{return false;}
+    });
+  }
   function guard(expectedSession=null){
     if(cancelled)throw fatal('已停止；已经发送的消息不会撤回');
     if(!agentPage())throw fatal('已离开 Arena Work / Agent 页面，探测停止');
     if(expectedSession&&session()!==expectedSession)throw fatal('已切换到其他聊天，探测停止');
+    if(visibleRecaptchaChallenge())throw fatal('出现 reCAPTCHA：探测已停止。开启自动音频辅助会尝试一次，否则请手动点击 Buster（首次需在选项准备模型）；验证完成后手动重新启动。');
   }
   function ensureReady(expectedSession=null){
     guard(expectedSession);
@@ -2125,6 +2139,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
   }
 
   chrome.runtime.onMessage.addListener((message,_sender,reply)=>{
+    if(message?.type==='AMP_BUSTER_VISIBLE'){reply({visible:_sender?.id===chrome.runtime.id&&document.visibilityState==='visible'&&document.hasFocus()&&/^https:\/\/(?:canary\.)?arena\.ai(?:\/|$)/.test(location.href)&&typeof message.challengeUrl==='string'&&visibleRecaptchaChallenge(message.challengeUrl)});return;}
     if(message?.type==='AMP_STATUS'){if(!ledgerState.data&&!ledgerState.loading)void refreshLedger();reply(publicStatus());return;}
     if(message?.type==='AMP_LEDGER_REFRESH'){void refreshLedger().then(()=>reply(publicStatus()));return true;}
     if(message?.type==='AMP_RUN_SELECTED'){draw.note='';void run(prefs.mode);reply(publicStatus());return;}

@@ -31,6 +31,17 @@ That data file is not bundled. It is validated as JSON and never executed. No ca
 
 WhatsMyLLM does not maintain or endorse this extension.
 
+## Embedded Buster
+
+- Upstream: https://github.com/dessant/buster
+- Version: 3.4.0; pinned commit `4f6fa9f26321fd645401e2f96e00cea4f8532e1a`
+- Copyright (c) 2018–2026 Armin Sebastian
+- License: GPL-3.0-only. The combined extension is distributed under GPL-3.0-only; see `LICENSE`.
+- Runtime and dependency notices: `buster/NOTICE.md`, `buster/licenses/`, and emitted `*.LICENSE.txt` files.
+- Adapted corresponding upstream source: `vendor/buster/upstream`; reproducible adapter: `tools/integrate-buster.mjs`.
+- Modifications restrict the UI to Arena-hosted reCAPTCHA frames, isolate storage and message routing, require explicit local Whisper preparation, offer a default-off visible-frame single local automatic attempt with session claims, provide optional owner-supplied ASR keys for manual use, and omit native-client/managed-cloud secrets, donation prompts and action takeover.
+- Model weights are not bundled. Local preparation downloads Whisper Tiny model files from Hugging Face only after an explicit user action. Optional cloud providers receive challenge audio only when selected by the user.
+
 ## Arena Trace Inspector（额度端点语义）
 
 每日额度读取的端点与字段语义（`GET https://arena.ai/api/me/pulse` → `{pulse, refreshedAt}`，`pulse` 为剩余百分比）参考自本机安装的 Arena Trace Inspector 2.3.2 的 `billing.js`（该副本由「沐介之9.20改」维护）。本扩展只移植纯解析逻辑与错误处理约定，未复制该项目的 trace 读取、debugger、cookies 或 declarativeNetRequest 组件。
