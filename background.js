@@ -993,7 +993,7 @@ async function priceFingerprintBlock(candidates, options = {}) {
     /* 比值腿最贴近的那个若不在费率族里，说明它被费率结构否掉了 —— 不该出现在结论里。 */
     const softRefuted = !!rateFamily && !!best && !softInFamily;
 
-    const separable = softSeparable && evidence !== 'conflict';
+    const separable = softSeparable && evidence !== 'conflict' && !softRefuted;
     const scopeLabel = scope === 'full-bank'
       ? `Arena 官方模型池 ${ids.length} 个模型里只有它落进 ±${Math.round((PRICE_FINGERPRINT_RATIO - 1) * 100)}% 窗口`
       : `候选 ${ids.length} 个里只有它落进 ±${Math.round((PRICE_FINGERPRINT_RATIO - 1) * 100)}% 窗口`;
@@ -1010,6 +1010,7 @@ async function priceFingerprintBlock(candidates, options = {}) {
       scope,
       arena_only: true,
       hit: best,
+      soft_refuted: softRefuted,
       runner_up: runnerUp,
       candidates: ids.length,
       n_pairs: base.n_pairs,
