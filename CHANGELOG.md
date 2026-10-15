@@ -1,3 +1,11 @@
+## 2.19.10
+
+- **Battle 实测费率优先**：价格来源统一为 Battle 稳定实测 > Arena 官方 > OpenRouter；同费率组、硬筛选、软排序平分及跨费率组代表项均按此顺序破平。
+- 新增默认关闭的 **“只取最接近”**：启用后把当前排序第一作为顶部名称与最终识别，并可配合原改名开关自动改名；原始歧义会明确披露，下方候选、费率族、硬筛选和其他证据保持完整展示。
+- 修复价格探针完成后 `/cost` 首次返回空账单就立即报“没有可用候选”的就绪竞态；仅对刚完成的价格探针短时重试，并在最终失败时保留 HTTP / reason / 空 messages 诊断。
+- 随包加入精简脱敏的 `arena-battle-price-rates.json`；完整训练集不进入运行时闭包与发布包。
+- `manifest.json` / `package.json`、弹窗与浮层标题升级到 2.19.10。
+
 ## 2.19.9
 
 - **接着修「还是获取不到模型」：面板渲染的其实是账本的 `cost_reverse`，不是价格指纹结果。** v2.19.8 只修了 `priceFingerprintBlock` 的 blocked 分支，但用户看到的仍是「没法配对」—— 因为 `state.price_fingerprint` 为空时浮层走 `const view = fp || cr`，用的是**账本块** `ledgerState.data.cost_reverse`（由 `costReverseBlock` 产出），而它同样在 `no-pairs` 时整条 return。

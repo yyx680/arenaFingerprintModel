@@ -2054,7 +2054,7 @@ table.cost-table td.c-zero{color:#5f7a73}
 table.cost-table tfoot td{background:#162924;color:#d6ece2;font-weight:650;border-top:1px solid #35544a}
 .cost-empty{padding:9px;color:#7d968f;font-size:8px;line-height:1.55}
 `;
-    const box=el('section','box'),head=el('header','head'),mark=el('span','mark','V'),title=el('div','title');title.append(el('b','','Vodka-Arena-Model'),el('small','','MODEL INTELLIGENCE · v2.19.9'));const collapse=el('button','collapse','—');collapse.title='收起';collapse.addEventListener('click',()=>{collapsed=true;paint();});const headTools=makeTools();head.append(mark,title,headTools[0],headTools[1],collapse);
+    const box=el('section','box'),head=el('header','head'),mark=el('span','mark','V'),title=el('div','title');title.append(el('b','','Vodka-Arena-Model'),el('small','','MODEL INTELLIGENCE · v2.19.10'));const collapse=el('button','collapse','—');collapse.title='收起';collapse.addEventListener('click',()=>{collapsed=true;paint();});const headTools=makeTools();head.append(mark,title,headTools[0],headTools[1],collapse);
     style.textContent+=`
 /* Vodka-Arena-Model · deep-space / ice-blue interface */
 .box{--vam-bg:#090e1a;--vam-panel:#10192c;--vam-border:#253756;--vam-text:#e5edff;--vam-muted:#91a4c7;--vam-accent:#67deff;width:368px;border-color:#304767;border-radius:16px;background:radial-gradient(ellipse at top right,#233c652e,transparent 55%),var(--vam-bg);color:var(--vam-text);box-shadow:0 20px 64px #020611b3,0 0 0 1px #67deff0c;font:12px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark}

@@ -1,4 +1,4 @@
-# Arena Model Probe 2.19.6　·　由 Vodka 制作
+# Arena Model Probe 2.19.10　·　由 Vodka 制作
 
 独立的 Chrome / Edge Manifest V3 扩展，不依赖 Arena Trace Inspector、Trigger.dev trace 或旧部署 Cookie。它用数字指纹识别 Arena Agent 当前会话背后的模型：可以单轮探测，也可以连续自动抽卡；同时显示 Arena 每日额度剩余。
 
