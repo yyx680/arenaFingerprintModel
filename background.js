@@ -5,12 +5,15 @@ import {countNumbers, parseNumbers} from './modeltrace-core.js';
 import {queryRunTrace} from './model-trace.js';
 import {rhythmProfile, rhythmVote, rhythmAccumulate} from './rhythm-channel.js';
 import {normalizeCostTable, crossCheckCost, observedCostFromSignals, observedCostDetail, costDetailFromSession, describeCostDetail, chargedFromBase, TIER_LABEL} from './price-channel.js';
-import {normalizePricingTable, applyCacheRates, mergeOpenRouterPrices, pricingSummary, bankPricing, discrimination, rankByObservedCost, expectedCostUsd, hardFilterByCosts, normalizeCostBreakdown, baseModelName, CONSISTENT_RATIO} from './pricing-channel.js';
-import {parseUsage, usageShape, describeUsage, sumUsage, latestUsage} from './usage-channel.js';
-import {buildLedger, ledgerRowsFromCostMessages, ledgerRowsFromEstimates, ledgerTotals, pairCostWithEstimates, LEDGER_SCHEMA, samePriceGroups, tokenRatioText, describeTotals, formatUsd} from './cost-ledger.js';
+import {normalizePricingTable, applyCacheRates, mergeBattleObservedPrices, mergeOpenRouterPrices, pricingSummary, bankPricing, discrimination, rankByObservedCost, expectedCostUsd, hardFilterByCosts, normalizeCostBreakdown, baseModelName, pricingSourcePriority, CONSISTENT_RATIO, hasNonTokenMediaCost} from './pricing-channel.js';
+import {parseUsage, usageShape, describeUsage, sumUsage, latestUsage, normalizeEstimateBucket, USAGE_SCHEMA} from './usage-channel.js';
+import {buildLedger, ledgerRowsFromCostMessages, ledgerRowsFromEstimates, ledgerTotals, pairCostWithUsage, LEDGER_SCHEMA, samePriceGroups, tokenRatioText, describeTotals, formatUsd} from './cost-ledger.js';
 import './text-channel.js';
 // Embedded manual reCAPTCHA audio assistance (GPL-3.0-only), separate from AMP routing.
 import './buster/src/background/script.js';
+import {registerRecaptchaAnchor} from './recaptcha-anchor-background.js';
+
+registerRecaptchaAnchor();
 
 const EXPECTED = [297, 315, 331];
 /* v2.9.3 文本词频通道存储键（已知模型建档的第二条腿：BoW 词频参考库）。 */
@@ -95,7 +98,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     /* v2.17.0 价格指纹：指纹识别的候选集（nearest + top3）内，价格能否唯一切开。
        候选来自识别结果 —— 价格只在识别划定的范围里做裁决，不做全库盲猜。 */
     const candidateIds = [nearest.id, ...(result.top3 || []).map(item => item.id)].filter((id, index, list) => typeof id === 'string' && list.indexOf(id) === index);
-    const priceFingerprint = await priceFingerprintBlock(candidateIds);
+    const priceFingerprint = await priceFingerprintBlock(candidateIds, {pageUrl: sender.url});
     return {
       checks: prepared.checks,
       result: {
@@ -106,7 +109,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
           display_name: NAMES[nearest.id] || nearest.display_name || nearest.id,
           family: nearest.family,
           family_name: nearest.family_name,
+          fit: nearest.fit,
+          probability: nearest.probability,
         },
+        top3: result.top3,
+        candidates: result.candidates,
+        decision: result.decision,
         signals: result.signals,
         used_outputs: result.used_outputs,
         bank_models: result.bank_models,
@@ -203,7 +211,8 @@ async function priceBlockFor(result) {
    实测全 null），解析后持久化到 chrome.storage.local（amp.pricing.live.v1）。
    加载优先级：内存缓存 → 24h 内的持久化实时表 → 实时抓取（30 分钟冷却）→ 随包快照兜底。
    失败只记原因，绝不影响指纹评分。 */
-const PRICING_LIVE_KEY = 'amp.pricing.live.v1';
+// v1 曾把缺失的缓存价格解析成 0；换缓存键，不继续消费已污染的文档。
+const PRICING_LIVE_KEY = 'amp.pricing.live.v2';
 const PRICING_LIVE_TTL_MS = 24 * 3600e3;
 const PRICING_LIVE_COOLDOWN_MS = 30 * 60e3;
 /* v2.19.0 cache 费率补充表（arena-cache-rates.json，来源 OpenRouter 公开价目）。
@@ -218,6 +227,14 @@ const CACHE_RATES_FILE = 'arena-cache-rates.json';
 void chrome.runtime.getURL('arena-cache-rates.json');   // 依赖闭包锚点：须与上面的常量一致
 let cacheRatesDoc = null;
 let cacheRatesLoadState = {tried: false, error: null};
+
+/* 已揭示 Battle 训练集的脱敏费率摘要。原始训练集含 prompt/response，不进入运行时包；
+   tools/build-battle-price-rates.mjs 只输出稳定的同消息实测费率和样本数。
+   同 key 时 Battle 实测作主值，Arena 官方价保留为辅助参考。 */
+const BATTLE_PRICE_RATES_FILE = 'arena-battle-price-rates.json';
+void chrome.runtime.getURL('arena-battle-price-rates.json');   // 依赖闭包锚点：须与上面的常量一致
+let battlePriceRatesDoc = null;
+let battlePriceRatesLoadState = {tried: false, error: null};
 
 /* v2.19.6：OpenRouter 公开价目补充表 —— 补的是**模型本体**（Arena 榜单没有的整行加进来）。
    Arena 榜单只覆盖它自己上架的 208 个模型；实测真实账单可能只能被榜单之外的模型解释
@@ -258,6 +275,13 @@ function sliceBalancedObject(text, start, maxLen = 8000) {
    flight 载荷可能是转义的（self.__next_f.push 字符串）——首遍 0 命中时解转义再扫。 */
 function parseLeaderboardFlight(text) {
   const rows = [];
+  const priceOrNull = value => {
+    if (value === null || value === undefined || typeof value === 'boolean' ||
+        (typeof value === 'string' && !value.trim())) return null;
+    if (typeof value !== 'number' && typeof value !== 'string') return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  };
   const scan = (source) => {
     const marker = '"inputPricePerMillion"';
     let idx = 0;
@@ -280,13 +304,13 @@ function parseLeaderboardFlight(text) {
         try { parsed = JSON.parse(slice); } catch { parsed = null; }
         if (!parsed || typeof parsed !== 'object' || typeof parsed.modelKey !== 'string') continue;
         const key = parsed.modelKey.trim();
-        const input = Number(parsed.inputPricePerMillion);
-        const output = Number(parsed.outputPricePerMillion);
+        const input = priceOrNull(parsed.inputPricePerMillion);
+        const output = priceOrNull(parsed.outputPricePerMillion);
         if (!key || key.length > 160 || seen.has(key)) break;
-        if (!(Number.isFinite(input) && input >= 0) && !(Number.isFinite(output) && output >= 0)) break;
+        if (input === null && output === null) break;
         seen.add(key);
-        const cacheRead = Number(parsed.cacheReadPricePerMillion);
-        const cacheWrite = Number(parsed.cacheWritePricePerMillion);
+        const cacheRead = priceOrNull(parsed.cacheReadPricePerMillion);
+        const cacheWrite = priceOrNull(parsed.cacheWritePricePerMillion);
         rows.push({
           model_key: key,
           display: typeof parsed.modelDisplayName === 'string' ? parsed.modelDisplayName : key,
@@ -356,33 +380,117 @@ async function loadPricingTable() {
   }
 }
 
-/** v2.19.0 / v2.19.6：原始价目文档 → 归一化单价表，并合并两张外部补充表：
- *  ① `openrouter-prices.json` —— 把 Arena 榜单**没有的**模型整行补进来（只加不覆盖）；
- *  ② `arena-cache-rates.json` —— 给已有行补 cache 费率（只补不覆盖，官方优先）。
- *  任何一张读不到都不阻塞 —— 补充表缺失不能让整条价格通道瘫痪。 */
+/** 原始价目文档 → 归一化单价表，并按可信度合并三张补充表：
+ *  ① `arena-battle-price-rates.json` —— 已揭示 Battle 同消息实测价（同 key 覆盖主值、保留官方参考）；
+ *  ② `openrouter-prices.json` —— 再补前两者都没有的公开模型（只加不覆盖）；
+ *  ③ `arena-cache-rates.json` —— 给已有行补 cache 费率（只补不覆盖）。
+ *  任一张读不到都不阻塞 —— 补充表缺失不能让整条价格通道瘫痪。 */
 async function decoratePricingTable(rawDoc) {
-  const prices = await loadOpenRouterPrices();
-  const merged = mergeOpenRouterPrices(rawDoc, prices);
+  const [battleRates, prices, cacheRates] = await Promise.all([
+    loadBattlePriceRates(), loadOpenRouterPrices(), loadCacheRates(),
+  ]);
+  const observed = mergeBattleObservedPrices(rawDoc, battleRates);
+  const merged = mergeOpenRouterPrices(observed, prices);
   const table = normalizePricingTable(merged);
-  const arenaKeys = new Set((rawDoc.rows || []).filter(row => row.source !== 'openrouter-public').map(row => row.model_key));
-  for (const profile of table.all()) profile.arena_listed = arenaKeys.has(profile.model_key);
+  const officialRows = new Map((rawDoc.rows || [])
+    .filter(row => row.source !== 'openrouter-public').map(row => [row.model_key, row]));
+  const arenaKeys = new Set(officialRows.keys());
+  const mergedRows = new Map((merged.rows || []).map(row => [row.model_key, row]));
+  const observedKeys = new Set((merged.rows || []).filter(row => row.source === 'arena-battle-observed').map(row => row.model_key));
+  for (const profile of table.all()) {
+    profile.arena_listed = arenaKeys.has(profile.model_key);
+    profile.arena_battle_observed = observedKeys.has(profile.model_key);
+    const mergedRow = mergedRows.get(profile.model_key);
+    const officialRow = officialRows.get(profile.model_key);
+    profile.price_source = profile.arena_battle_observed ? 'arena-battle-observed'
+      : profile.arena_listed ? 'arena-official'
+        : (typeof mergedRow?.source === 'string' ? mergedRow.source : null);
+    profile.battle_observed_samples = profile.arena_battle_observed
+      ? (mergedRow?.observed_samples || null) : null;
+    if (profile.arena_battle_observed) profile.battle_observed_rates = {
+      input_usd_per_mtok: profile.input_usd_per_mtok,
+      output_usd_per_mtok: profile.output_usd_per_mtok,
+      cache_read_usd_per_mtok: profile.cache_read_usd_per_mtok,
+      cache_write_usd_per_mtok: profile.cache_write_usd_per_mtok,
+    };
+    // 官方字段从合并前的原始表保存，避免被 Battle 主值覆盖后丢失辅助参考。
+    if (profile.arena_listed) profile.arena_official_rates = {
+      input_usd_per_mtok: officialRow?.input_usd_per_mtok ?? null,
+      output_usd_per_mtok: officialRow?.output_usd_per_mtok ?? null,
+      cache_read_usd_per_mtok: officialRow?.cache_read_usd_per_mtok ?? null,
+      cache_write_usd_per_mtok: officialRow?.cache_write_usd_per_mtok ?? null,
+    };
+  }
   /* 补充表元信息显式挂到归一化表上（normalizePricingTable 只回传计价档案，不搬运任意字段）。 */
+  if (merged.battle_observed_supplement) table.battle_observed_rates = merged.battle_observed_supplement;
   if (merged.openrouter_supplement) table.openrouter_supplement = merged.openrouter_supplement;
-  return applyCacheRates(table, await loadCacheRates()) || table;
+  return applyCacheRates(table, cacheRates) || table;
 }
-/** 模型身份只使用 Arena 自己的价目；公开补充仅可为已有模型补缓存费率。 */
-function arenaPricingTable(table) {
-  const profiles = table.all().filter(profile => profile.arena_listed === true);
+/** 识别费率优先级：Battle 稳定实测 > Arena 官方参考 > OpenRouter 公开价兜底。 */
+function arenaPricingTable(table, pageUrl = '') {
+  let agentOnly = false;
+  try { agentOnly = /^\/(?:agent|work)(?:\/|$)/i.test(new URL(pageUrl).pathname); } catch {}
+  // 榜单包含历史 text/webdev 条目，不等于当前 Agent 的路由池。
+  // 明确的 Agent/Work 页面只过滤纯官方历史条目；Battle 实测和 OpenRouter 兜底不按后缀误删。
+  const profiles = table.all().filter(profile =>
+    (profile.arena_battle_observed === true || profile.arena_listed === true || profile.price_source === 'openrouter-public')
+      && (!agentOnly || profile.arena_battle_observed === true || profile.price_source === 'openrouter-public'
+        || /(?:^|-)agent(?:-|$)/i.test(profile.model_key))).map(profile => {
+    const observed = profile.arena_battle_observed === true;
+    const official = profile.arena_listed === true;
+    const primary = observed ? profile.battle_observed_rates
+      : official ? profile.arena_official_rates : null;
+    const source = observed ? 'arena-battle-observed'
+      : official ? 'arena-official' : 'openrouter-public';
+    const primaryHasCache = (primary?.cache_read_usd_per_mtok ?? null) !== null
+      || (primary?.cache_write_usd_per_mtok ?? null) !== null;
+    return {
+      ...profile,
+      ...(primary || {}),
+      cache_read_usd_per_mtok: primary?.cache_read_usd_per_mtok ?? profile.cache_read_usd_per_mtok,
+      cache_write_usd_per_mtok: primary?.cache_write_usd_per_mtok ?? profile.cache_write_usd_per_mtok,
+      cache_rate_source: primaryHasCache ? source : (profile.cache_rate_source || source),
+      cache_rate_or_id: primaryHasCache ? null : (profile.cache_rate_or_id || null),
+      cache_rate_batch: primaryHasCache ? false : profile.cache_rate_batch === true,
+      cache_rate_consistent: primaryHasCache ? true : profile.cache_rate_consistent !== false,
+      price_source: source,
+      official_reference_rates: observed && official ? profile.arena_official_rates : null,
+    };
+  });
   const byKey = new Map(profiles.map(profile => [profile.model_key, profile]));
+  // 在过滤后的池子重新解析别名，避免非 Agent 精确命中挡住 Agent 变体。
+  const scoped = profiles.length ? normalizePricingTable({schema: table.schema, rows: profiles}) : null;
   return {...table, byKey, rows: profiles.length, models: profiles.length,
     text_models: profiles.filter(profile => profile.kind !== 'media').length,
     media_models: profiles.filter(profile => profile.kind === 'media').length,
-    openrouter_supplement: null,
+    openrouter_supplement: table.openrouter_supplement || null,
+    cache_rates: table.cache_rates || null,
+    battle_observed_rates: table.battle_observed_rates || null,
+    pricing_policy: 'battle-observed-then-arena-official-then-openrouter',
+    candidate_scope: agentOnly ? 'agent-pricing-priority' : 'pricing-priority',
     profile: key => byKey.get(key) || null,
     all: () => profiles.slice(),
     text: () => profiles.filter(profile => profile.kind !== 'media'),
-    resolve: id => table.resolve(id).filter(key => byKey.has(key)),
+    resolve: id => scoped ? scoped.resolve(id) : [],
   };
+}
+
+async function loadBattlePriceRates() {
+  if (battlePriceRatesLoadState.tried) return battlePriceRatesDoc;
+  battlePriceRatesLoadState = {tried: true, error: null};
+  try {
+    const response = await fetch(chrome.runtime.getURL(BATTLE_PRICE_RATES_FILE), {cache: 'no-cache'});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const doc = await response.json();
+    if (!doc || doc.schema !== 'arena-battle-price-rates-v1' || !Array.isArray(doc.rows)) {
+      throw new Error('Battle 实测费率表 schema 无效');
+    }
+    battlePriceRatesDoc = doc;
+  } catch (error) {
+    battlePriceRatesLoadState.error = String(error?.message || error);
+    battlePriceRatesDoc = null;
+  }
+  return battlePriceRatesDoc;
 }
 
 /** v2.19.6：读 OpenRouter 公开价目补充表（模型本体：in/out/cache）。
@@ -430,7 +538,7 @@ function cleanOfficialCost(message) {
   const session = message?.session && typeof message.session === 'object' ? message.session : null;
   const messages = message?.messages && typeof message.messages === 'object' ? message.messages : null;
   if (!session && !messages) return null;
-  const num = (value) => (Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 1e7 ? Number(value) : null);
+  const num = (value) => (value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 1e7 ? Number(value) : null);
   const cleanSession = session ? {
     actualTotalUsd: num(session.actualTotalUsd),
     chargedTotalUsd: num(session.chargedTotalUsd),
@@ -454,15 +562,22 @@ function cleanOfficialCost(message) {
       if (!entry || typeof entry !== 'object') continue;
       const actual = entry.actual && typeof entry.actual === 'object' ? entry.actual : entry;
       const row = {
-        basePriceUsd: num(actual.basePriceUsd ?? entry.basePriceUsd),
+        basePriceUsd: num(entry.basePriceUsd ?? actual.basePriceUsd),
         totalCostUsd: num(actual.totalCostUsd ?? entry.totalCostUsd),
-        totalChargedUsd: num(actual.totalChargedUsd ?? entry.totalChargedUsd),
-        totalChargedCredits: num(actual.totalChargedCredits ?? entry.totalChargedCredits),
+        totalChargedUsd: num(entry.totalChargedUsd ?? actual.totalChargedUsd),
+        totalChargedCredits: num(entry.totalChargedCredits ?? actual.totalChargedCredits),
+        inputTokensCostUsd: num(actual.inputTokensCostUsd ?? entry.inputTokensCostUsd),
+        outputTokensCostUsd: num(actual.outputTokensCostUsd ?? entry.outputTokensCostUsd),
+        cacheWriteTokensCostUsd: num(actual.cacheWriteTokensCostUsd ?? entry.cacheWriteTokensCostUsd),
+        cacheReadTokensCostUsd: num(actual.cacheReadTokensCostUsd ?? entry.cacheReadTokensCostUsd),
+        isFallback: actual.isFallback === true || entry.isFallback === true ? true : null,
+        isLongContext: actual.isLongContext === true || entry.isLongContext === true ? true : null,
         /* pricingStrategy 实测在 entry 顶层（不在 actual 里）—— 与其余字段一样双来源。 */
         pricingStrategy: typeof (actual.pricingStrategy ?? entry.pricingStrategy) === 'string' ? String(actual.pricingStrategy ?? entry.pricingStrategy).slice(0, 40) : null,
         marginMultiplier: num(entry.marginMultiplier ?? actual.marginMultiplier),
         discountPercent: num(entry.discountPercent ?? actual.discountPercent),
       };
+      if (hasNonTokenMediaCost(entry)) row.non_token_media_cost = true;
       if (Object.values(row).every(value => value === null)) continue;
       cleanMessages[String(messageId).slice(0, 64)] = row;
       count += 1;
@@ -478,53 +593,118 @@ function cleanOfficialCost(message) {
   };
 }
 
-/* v2.13.0 真实按次成本优先级：结构化 cost-route 信号（/api/.../cost 的真实响应）
-   session.actualTotalUsd > 逐条 actual.totalCostUsd 之和 > 旧的正则字段信号。
-   v2.13.1：一律返回**未加价的 base**（只有 base 与「Σ token × 公开单价」同口径，才能用来反推模型），
-   同时把实扣价与倍率一并带回（detail），供浮层显示 `base / 实扣 / ×N`。
-   v2.16.0：content.js 带 PostHog 覆写 cookie 读到的官方账单（netState.officialCost）优先 ——
-   这是目前唯一能在 Agent 模式稳定拿到逐条金额的来源（实测 200 完整账单）。 */
+function baseUsdFromCostEntry(entry) {
+  for (const value of [entry?.basePriceUsd, entry?.base_usd, entry?.actual?.basePriceUsd]) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) return number;
+  }
+  return null;
+}
+
+function explicitSessionBaseUsd(session) {
+  return baseUsdFromCostEntry(session) || baseUsdFromCostEntry(session?.aggregate);
+}
+
+function sumExplicitMessageBase(messages) {
+  const rows = Array.isArray(messages) ? messages : Object.values(messages || {});
+  return rows.reduce((sum, entry) => sum + (baseUsdFromCostEntry(entry) || 0), 0);
+}
+
+function nonTokenMediaCostCount(messages) {
+  const rows = Array.isArray(messages) ? messages : (messages && typeof messages === 'object' ? Object.values(messages) : []);
+  return rows.filter(hasNonTokenMediaCost).length;
+}
+
+function nonTokenMediaCostNote(count) {
+  return `官方账单有 ${count} 条包含图像/视频/音频专属费用；当前 usage 没有对应模态计数，不与纯 token 费率反推。`;
+}
+
+/** Pick the newest exact Arena usage row whose message_id has an explicit per-message base. */
+function latestMatchedMessageCostUsage(messageUsage = netState.messageUsage, costPayload = null) {
+  const baseById = new Map();
+  const addMessages = messages => {
+    if (Array.isArray(messages)) {
+      for (const entry of messages) {
+        const id = entry?.message_id;
+        const base = baseUsdFromCostEntry(entry);
+        if (id && base && !baseById.has(String(id))) baseById.set(String(id), base);
+      }
+      return;
+    }
+    if (!messages || typeof messages !== 'object') return;
+    for (const [key, entry] of Object.entries(messages)) {
+      const id = entry?.message_id || key;
+      const base = baseUsdFromCostEntry(entry);
+      if (id && base && !baseById.has(String(id))) baseById.set(String(id), base);
+    }
+  };
+  if (costPayload && typeof costPayload === 'object') {
+    if (nonTokenMediaCostCount(costPayload.messages)) return null;
+    addMessages(costPayload.messages);
+  } else {
+    const route = netState.costRouteSignals[netState.costRouteSignals.length - 1];
+    if (nonTokenMediaCostCount(netState.officialCost?.messages) || nonTokenMediaCostCount(route?.messages)) return null;
+    addMessages(netState.officialCost?.messages);
+    addMessages(route?.messages);
+  }
+  const rows = Array.isArray(messageUsage) ? messageUsage : [];
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const entry = rows[index];
+    const id = String(entry?.message_id || '');
+    const base = baseById.get(id);
+    if (!id || !base) continue;
+    const raw = entry?.usage;
+    const usage = raw?.schema === USAGE_SCHEMA ? raw : parseUsage(raw);
+    if (usage && (Number(usage.totalTokens) || 0) > 0) {
+      return {message_id: id, base_usd: base, usage, usage_source: 'message-usage'};
+    }
+  }
+  return null;
+}
+
+/* 按公开单价反推只接受 Arena base：actualTotalUsd / totalCostUsd 是上游成本，
+   不能代替 base；有消息明细时再与相同 message_id 的精确 usage 配对。 */
 function observedCostActual() {
   const official = netState.officialCost;
   if (official) {
     const detail = costDetailFromSession(official.session);
-    const sessionUsd = Number(official.session?.actualTotalUsd);
-    if (Number.isFinite(sessionUsd) && sessionUsd > 0) return {usd: sessionUsd, via: 'official-cost/session', detail};
-    const sum = Object.values(official.messages || {}).reduce((acc, m) => acc + (Number(m.totalCostUsd) > 0 ? Number(m.totalCostUsd) : 0), 0);
-    if (sum > 0) return {usd: Number(sum.toFixed(6)), via: 'official-cost/messages', detail};
+    const sessionUsd = explicitSessionBaseUsd(official.session);
+    if (sessionUsd) return {usd: sessionUsd, via: 'official-cost/session', detail: detail ? {...detail, base_usd: sessionUsd} : {base_usd: sessionUsd}};
+    const sum = sumExplicitMessageBase(official.messages);
+    if (sum > 0) return {usd: Number(sum.toFixed(12)), via: 'official-cost/messages', detail: detail ? {...detail, base_usd: Number(sum.toFixed(12))} : {base_usd: Number(sum.toFixed(12))}};
   }
   const route = netState.costRouteSignals[netState.costRouteSignals.length - 1];
   if (route) {
     const detail = costDetailFromSession(route.session);
-    const sessionUsd = Number(route.session?.actualTotalUsd);
-    if (Number.isFinite(sessionUsd) && sessionUsd > 0) return {usd: sessionUsd, via: 'cost-route/session', detail};
-    const sum = (route.messages || []).reduce((acc, m) => acc + (Number(m.actual_usd) > 0 ? Number(m.actual_usd) : 0), 0);
-    if (sum > 0) return {usd: Number(sum.toFixed(6)), via: 'cost-route/messages', detail};
+    const sessionUsd = explicitSessionBaseUsd(route.session);
+    if (sessionUsd) return {usd: sessionUsd, via: 'cost-route/session', detail: detail ? {...detail, base_usd: sessionUsd} : {base_usd: sessionUsd}};
+    const sum = sumExplicitMessageBase(route.messages);
+    if (sum > 0) return {usd: Number(sum.toFixed(12)), via: 'cost-route/messages', detail: detail ? {...detail, base_usd: Number(sum.toFixed(12))} : {base_usd: Number(sum.toFixed(12))}};
   }
   const detail = observedCostDetail(netState.costSignals);
-  const generic = observedCostFromSignals(netState.costSignals);
-  return generic ? {usd: generic, via: 'cost-fields', detail} : null;
+  const genericBase = baseUsdFromCostEntry({basePriceUsd: detail?.base_usd});
+  return genericBase ? {usd: genericBase, via: 'cost-fields', detail} : null;
 }
 
 /** 给指纹结果附上单价块：候选的价格档位 + 本次用量的期望成本区分度（+ 有实测成本时按价排序 + 全库按价反推）。 */
 async function pricingBlockFor(result, options = {}) {
   try {
     const table = await loadPricingTable();
-    const usage = latestUsage(netState.usageSignals)?.usage || null;
+    const latestMessageEntry = netState.messageUsage.slice().reverse().find(entry => entry?.usage) || null;
+    const usage = latestMessageEntry?.usage || latestUsage(netState.usageSignals)?.usage || null;
     const candidates = [result.nearest.id, ...(result.top3 || []).map(item => item.id)];
     const block = {
       table: pricingSummary(table),
-      usage_source: usage ? 'netState.usageSignals' : null,
+      usage_source: usage ? (latestMessageEntry ? 'message-usage' : 'netState.usageSignals') : null,
       candidates: candidates.map(id => {
         const priced = bankPricing(id, table);
         return {id, priced: priced?.priced || false, keys: priced?.keys || [], input_range: priced?.input_range || null, output_range: priced?.output_range || null};
       }),
       discrimination: usage ? discrimination(usage, candidates, table) : null,
       note: usage
-        ? '期望成本按最近一次实测 token 用量折算；缓存单价 Arena 未下发，故只是下界。'
+        ? `期望成本按最近一次${latestMessageEntry ? '逐条 Arena usage' : '实测 token 用量'}折算；缓存单价 Arena 未下发，故只是下界。`
         : '尚未捕获 token 用量，只能给价格档位、无法折算期望成本（需页面上真实发一条消息）。',
     };
-    const observed = observedCostFromSignals(netState.costSignals);
     /* v2.13.0 每条消息的期望成本：本条实测 token 用量 × 识别模型的单价。
        Arena 网页版不下发美元成本，这就是「本次发消息花了多少」的可用答案；
        识别模型有多档变体单价时给区间；缓存单价未下发时只是下界（complete=false）。 */
@@ -554,44 +734,73 @@ async function pricingBlockFor(result, options = {}) {
       }
     }
     const actual = observedCostActual();
-    const observedUsd = actual?.usd || observed;
-    /* v2.13.1：把「未加价 base / 实扣 / 倍率」一并带回浮层。
-       `rankByObservedCost` 用的是 observedUsd（= base），因为只有 base 与公开单价同口径。 */
-    const detail = actual?.detail || observedCostDetail(netState.costSignals);
+    const matchedPair = latestMatchedMessageCostUsage(netState.messageUsage, options.costPayload || null);
+    const suppliedBase = explicitSessionBaseUsd(options.costPayload?.session);
+    const observedUsd = actual?.usd || suppliedBase || null;
+    const route = netState.costRouteSignals[netState.costRouteSignals.length - 1];
+    const mediaCostCount = nonTokenMediaCostCount(options.costPayload?.messages || netState.officialCost?.messages || route?.messages);
+    const detail = actual?.detail
+      || costDetailFromSession(options.costPayload?.session)
+      || costDetailFromSession(netState.officialCost?.session)
+      || costDetailFromSession(route?.session)
+      || observedCostDetail(netState.costSignals);
+    /* 仅展示明确 base；实际用于比较时还必须是同 message_id 的 base + usage。 */
     block.observed_usd = observedUsd || null;
-    block.observed_via = actual?.via || null;
+    block.observed_via = actual?.via || (suppliedBase ? 'cost-payload/session-base' : null);
     if (detail) {
       block.observed_detail = detail;
       block.observed_text = describeCostDetail(detail);
     }
-    if (observedUsd && usage) {
-      block.ranked = rankByObservedCost(observedUsd, usage, candidates, table);
+    if (matchedPair) {
+      block.ranked = rankByObservedCost(matchedPair.base_usd, matchedPair.usage, candidates, table);
+      block.ranked_observation = {message_id: matchedPair.message_id, base_usd: matchedPair.base_usd, usage_source: matchedPair.usage_source};
     } else {
       block.ranked = null;
-      if (!observedUsd) block.observed_note = netState.costGate
-        ? `检测到 ${netState.costGate.url || '/cost 路由'} 返回 ${netState.costGate.status}（覆写 cookie 后仍未放行）→ 显示期望成本；一旦拿到真实成本自动升级为按价排序。`
-        : (netState.officialCost
-          ? '已拿到 /cost 真实成本（覆写 PostHog cookie 放行），但本条没有 token 用量可摊 —— Battle 模式自动启用按价排序。'
-          : '未拿到 Arena 按次成本（/api/chat/:id/cost；v2.16.0 起会带 PostHog 覆写 cookie 再试）。');
+      const hasExactUsage = netState.messageUsage.some(entry => entry?.usage);
+      const upstreamOnly = Number(detail?.actual_usd) > 0 && !(Number(detail?.base_usd) > 0);
+      block.observed_note = mediaCostCount
+        ? nonTokenMediaCostNote(mediaCostCount)
+        : upstreamOnly
+          ? '只有上游 actual 成本，没有明确 Arena base；不能与公开 token 单价比较。'
+          : observedUsd && hasExactUsage
+            ? '已有 Arena base 与逐条用量，但没有相同 message_id 的配对；不会拿会话合计比较单条用量。'
+            : observedUsd
+              ? '已拿到 Arena session base，但没有同 message_id 的逐条 base + usage 配对，按价排序待命。'
+              : netState.costGate
+                ? `检测到 ${netState.costGate.url || '/cost 路由'} 返回 ${netState.costGate.status}（覆写 cookie 后仍未放行）→ 显示期望成本；一旦取得同消息 base + usage 配对才按价排序。`
+                : (netState.officialCost || options.costPayload)
+                  ? '已拿到 /cost 响应，但缺少可与逐条 usage 对齐的明确 Arena base；按价排序待命。'
+                  : '未拿到 Arena 按次成本（/api/chat/:id/cost；v2.16.0 起会带 PostHog 覆写 cookie 再试）。';
     }
-    /* v2.13.3 按价反推通道：不看指纹候选，用 base 成本 × 本次用量对指纹库**全部**模型排序
-       （rankByObservedCost 内部是 log 比值高斯核；base 与公开单价同口径，见 v2.13.1）。
-       同价等价类里的模型单靠价格区分不开，same_price_groups.ambiguous 直说。 */
+    /* 按价反推只用同 message_id 的逐条 Arena base × 精确 usage；会话总额不会摊给单条用量。 */
     const bankIds = Array.isArray(options.bankIds) ? options.bankIds.filter(id => typeof id === 'string') : [];
-    if (observedUsd && usage && bankIds.length) {
-      const hits = rankByObservedCost(observedUsd, usage, bankIds, table, 6);
+    if (matchedPair && bankIds.length) {
+      const hits = rankByObservedCost(matchedPair.base_usd, matchedPair.usage, bankIds, table, 6);
       if (hits?.length) {
         const groups = samePriceGroups(hits.map(hit => hit.model_key), table);
         block.reverse = {
-          observed_usd: observedUsd,
+          observed_usd: matchedPair.base_usd,
+          message_id: matchedPair.message_id,
+          usage_source: matchedPair.usage_source,
+          scope: 'message',
           bank_models: bankIds.length,
           hits,
           same_price_groups: groups.map(group => ({ids: group.ids, ambiguous: group.ids.length > 1})),
           text: `按价反推: ${hits[0].label || hits[0].model_key}（比值 ${hits[0].ratio}${hits[0].complete ? '' : ' · 下界'}）`,
         };
       }
-    } else if (!observedUsd) {
-      block.reverse = {blocked: 'no-observed-cost', note: '按价反推需要「本条的真实 base 成本」：当前账号读不到 /cost 路由（灰度），只能给候选区分度与同价等价类。'};
+    } else if (matchedPair) {
+      block.reverse = {blocked: 'no-model-bank', note: '同消息 base 与精确 usage 已配对，但指纹库没有可排序的模型。'};
+    } else {
+      const hasExactUsage = netState.messageUsage.some(entry => entry?.usage);
+      const upstreamOnly = Number(detail?.actual_usd) > 0 && !(Number(detail?.base_usd) > 0);
+      block.reverse = mediaCostCount
+        ? {blocked: 'non-token-media-cost', note: nonTokenMediaCostNote(mediaCostCount)}
+        : observedUsd
+          ? {blocked: hasExactUsage ? 'no-message-pair' : 'no-usage', note: '按价反推需要相同 message_id 的「逐条 Arena base + 精确 usage」；会话级合计不与单条用量混算。'}
+          : upstreamOnly
+            ? {blocked: 'no-base-cost', note: '只有上游 actual 成本，没有明确 Arena base，不能与公开模型单价比较。'}
+            : {blocked: 'no-observed-cost', note: '按价反推需要「同消息的真实 base 成本与精确 usage」；当前没有可配对数据。'};
     }
     return block;
   } catch (error) {
@@ -654,33 +863,43 @@ async function ledgerBlock(options = {}) {
     const sum = sumUsage(netState.messageUsage.map(entry => entry.usage));
     const candidateIds = Array.isArray(options.candidates) ? options.candidates.filter(id => typeof id === 'string').slice(0, 40) : [];
     const groups = candidateIds.length ? samePriceGroups(candidateIds, table) : [];
-    /* v2.13.3 按价反推进花费账本：最近一条消息的真实 base 成本 × 该条用量，对全库排序。 */
+    /* 按价反推进花费账本：只比较相同 message_id 的逐条 Arena base 与精确 usage。 */
     let reverse = null;
     const reverseObserved = observedCostActual();
-    const lastEntry = netState.messageUsage[netState.messageUsage.length - 1];
-    if (reverseObserved?.usd && lastEntry?.usage) {
+    const reversePair = latestMatchedMessageCostUsage(netState.messageUsage, costPayload);
+    if (reversePair) {
       try {
         const loaded = await loadProbeBank();
         const bankIds = (loaded?.bank?.models || []).map(m => m?.id).filter(id => typeof id === 'string');
         if (bankIds.length) {
-          const hits = rankByObservedCost(reverseObserved.usd, lastEntry.usage, bankIds, table, 6);
+          const hits = rankByObservedCost(reversePair.base_usd, reversePair.usage, bankIds, table, 6);
           if (hits?.length) {
             const hitGroups = samePriceGroups(hits.map(hit => hit.model_key), table);
             reverse = {
-              observed_usd: reverseObserved.usd,
+              observed_usd: reversePair.base_usd,
+              message_id: reversePair.message_id,
+              usage_source: reversePair.usage_source,
               hits,
               same_price_groups: hitGroups.map(group => ({ids: group.ids, ambiguous: group.ids.length > 1})),
               text: `按价反推: ${hits[0].label || hits[0].model_key}（比值 ${hits[0].ratio}${hits[0].complete ? '' : ' · 下界'}）`,
             };
           }
-        }
+        } else reverse = {blocked: 'no-model-bank', note: '同消息 base 与精确用量已配对，但指纹库没有可排序的模型。'};
       } catch { /* 指纹库没加载出来就不出反推 */ }
     } else {
-      /* v2.16.0：区分「没有真实成本」和「有真实成本但 Agent 模式没有 token 用量」——
-         后者按价反推暂时用不上，但账单本身已经在上面给出了。 */
+      const hasMessageUsage = netState.messageUsage.some(entry => entry?.usage);
+      const sessionDetail = (costPayload && costDetailFromSession(costPayload.session))
+        || costDetailFromSession(netState.officialCost?.session)
+        || costDetailFromSession(netState.costRouteSignals[netState.costRouteSignals.length - 1]?.session)
+        || observedCostDetail(netState.costSignals);
+      const upstreamOnly = Number(sessionDetail?.actual_usd) > 0 && !(Number(sessionDetail?.base_usd) > 0);
       reverse = reverseObserved?.usd
-        ? {blocked: 'no-usage', note: '已拿到 /cost 真实成本，但 Agent 会话没有逐条 token 用量（会话包不下发）—— 按价反推待命；Battle 模式有用量即自动启用。'}
-        : {blocked: 'no-observed-cost', note: netState.costGate
+        ? hasMessageUsage
+          ? {blocked: 'no-message-pair', note: '已有精确用量和 Arena base，但没有相同 message_id 的逐条配对；不拿会话合计比较单条用量。'}
+          : {blocked: 'no-usage', note: '已拿到 Arena base，但 Agent 会话没有逐条 token 用量（会话包不下发）—— 按价反推待命；Battle 模式有用量即自动启用。'}
+        : upstreamOnly
+          ? {blocked: 'no-base-cost', note: '只拿到上游 actual 成本，没有明确 Arena base；不能与公开模型单价比较。'}
+          : {blocked: 'no-observed-cost', note: netState.costGate
           ? `读成本被灰度门拦（/cost 返回 ${netState.costGate.status}）：按价反推需要真实 base 成本。`
           : '未拿到真实 base 成本：按价反推待命（有 /cost 响应即自动启用）。'};
     }
@@ -726,17 +945,17 @@ async function ledgerBlock(options = {}) {
   }
 }
 
-/* v2.16.1 花费反推：官方逐条 base ÷ 同消息估算 token = 隐含单价，汇总喂给
-   既有的 rankByObservedCost 对指纹库全量排序。
+/* v2.16.1 花费反推：官方逐条 base ÷ 同 message_id 的 Arena 精确用量 = 隐含单价，
+   汇总喂给 rankByObservedCost 对候选排序。chars-v1 只估输出文字，缺少历史输入与
+   cache-read token；它仍可显示在花费账本，但不能用于模型价格排名。
    与 v2.13.3 账本里的 `reverse` 是同一条腿的两种来路：
    · reverse      —— Battle 模式：最近一条真实 base × 服务端逐条 token 用量；
-   · cost_reverse —— Agent 模式：官方逐条 base × 转录估算 token（消息 id 对齐，
-     CDP 实测 5/5 完全对得上，见 dev-scratch/_cdp-id-align.mjs）。
-   诚实在前：token 是估算 → 结果是「可能性排序」不是定论；同价等价类里的模型
+   · cost_reverse —— Agent 模式：官方逐条 base × 同消息精确 usage。
+   诚实在前：缺精确用量就不排名；同价等价类里的模型
    单靠花费区分不开，same_price_groups.ambiguous 如实标注，绝不和稀泥。 */
 async function costReverseBlock(options = {}) {
   try {
-    const table = arenaPricingTable(await loadPricingTable());
+    const table = arenaPricingTable(await loadPricingTable(), options.pageUrl);
     /* 官方账单：浮层本轮传来的 costPayload 优先（刚探测完 200 的鲜活数据），
        否则 background 缓存的 netState.officialCost（弹窗路径不传 payload，靠缓存）。 */
     const payload = options.costPayload && typeof options.costPayload === 'object' ? options.costPayload : null;
@@ -754,26 +973,41 @@ async function costReverseBlock(options = {}) {
           : '还没有官方逐条账单（/api/chat/:id/cost）：花费反推待命 —— 打开花费账本浮层即会自动读取（临时覆写 PostHog cookie，读完即删）。',
       };
     }
-    /* v2.19.9：候选与**硬筛选腿**都不依赖「账单↔估算能否配对」，先算好 ——
+    const mediaCostCount = nonTokenMediaCostCount(official.messages);
+    if (mediaCostCount) {
+      return {blocked: 'non-token-media-cost', note: nonTokenMediaCostNote(mediaCostCount), n_non_token_media_cost: mediaCostCount};
+    }
+    /* v2.19.9：候选与**硬筛选腿**都不依赖「账单↔用量能否配对」，先算好 ——
        配对失败时也照样把费率族报出来（用户反馈「还是获取不到模型」）。
        池子：给了候选就用候选，否则扫**整张单价表**（不被 21 个模型的指纹库框住）。 */
-    const given = Array.isArray(options.candidates) ? options.candidates.filter(id => typeof id === 'string') : [];
+    const requested = Array.isArray(options.candidates) ? options.candidates.filter(id => typeof id === 'string') : [];
+    const given = [...new Set(requested)].filter(id => table.resolve(id).length);
+    if (requested.length && !given.length) return {blocked: 'no-candidates', note: '数字候选未匹配当前模式的 Arena 价目，不能扩大到其他模式猜测。'};
     const {hardOut, rateFamily} = await hardFamily(table, given.length ? given : [], options.costPayload);
     const familyFields = rateFamily ? {
       evidence: 'rate-family',
-      evidence_label: '费率族（费率结构）',
+      evidence_label: rateFamily.price_source === 'arena-battle-observed' ? 'Battle 实测优先旁证（非定名）' : '费率族（费率结构）',
       hard_filter: hardOut,
       rate_family: rateFamily,
-      text: `价格指纹: 费率结构指向 ${rateFamily.text} —— ${rateFamily.models.length} 个模型费率完全相同，单凭账单切不开（比值判据因账单/估算没配上对，本次未参与）`,
+      text: blockedRateFamilyText(rateFamily),
     } : {hard_filter: hardOut};
 
-    const paired = pairCostWithEstimates(official.messages, netState.transcriptEstimates);
+    const paired = pairCostWithUsage(official.messages, netState.messageUsage, netState.transcriptEstimates);
     if (!paired.n_pairs) {
       return {
         blocked: 'no-pairs',
-        note: `官方账单 ${Object.keys(official.messages).length} 条与转录估算 ${netState.transcriptEstimates.length} 条没按消息 id 配上对（账单侧落单 ${paired.cost_only.length} 条 / 估算侧落单 ${paired.estimate_only.length} 条）—— 两份数据不是同一会话时就会这样；消息 id 对齐后才谈得上反推。`,
+        note: `官方逐条 base ${Object.keys(official.messages).length} 条与同 message_id 用量没配上对（Arena 精确 usage 可用于价格比较，chars-v1 只作账本估算；账单侧落单 ${paired.cost_only.length} 条 / 估算侧落单 ${paired.estimate_only.length} 条）。`,
         n_cost_only: paired.cost_only.length,
         n_estimate_only: paired.estimate_only.length,
+        ...familyFields,
+      };
+    }
+    if (!paired.exact_usage) {
+      return {
+        blocked: 'estimate-only',
+        note: `已配对 ${paired.n_pairs} 条账单，但只有 chars-v1 转录估算；缺少历史输入和缓存 token，不能据此做可信的价格排名。`,
+        n_pairs: paired.n_pairs,
+        exact_usage: false,
         ...familyFields,
       };
     }
@@ -782,26 +1016,37 @@ async function costReverseBlock(options = {}) {
     if (!ids.length) {
       ids = table.text().map(profile => profile.model_key);
     }
-    const hits = ids.length ? rankByObservedCost(paired.total_base_usd, paired.usage, ids, table, 8) : null;
+    /* Price fingerprint must score the full supplied scope before claiming uniqueness;
+       ordinary cost-reverse keeps its compact top-8 result. */
+    const allHits = ids.length ? rankByObservedCost(paired.total_base_usd, paired.usage, ids, table, ids.length) : null;
+    const hits = options.fullPriceRanking === true ? allHits : allHits?.slice(0, 8);
+    const ratesComplete = !!allHits?.length && allHits.length === ids.length && allHits.every(hit => hit.complete === true);
     if (!hits?.length) {
-      return {blocked: 'no-priced', note: '公开单价表里没有任何候选能折算期望成本（缓存单价缺失或候选全都无价）—— 按价反推的前提是候选有价。'};
+      return {blocked: 'no-priced', note: 'Arena 官方费率不足以折算候选成本；缺失字段保持未知，不使用 OpenRouter 补价定名。'};
     }
     const groups = samePriceGroups(hits.map(hit => hit.model_key), table);
     const implied = paired.total_tokens > 0 ? Number((paired.total_base_usd / paired.total_tokens * 1e6).toFixed(4)) : null;
     return {
       observed_usd: paired.total_base_usd,
-      estimated_tokens: paired.total_tokens,
+      token_count: paired.total_tokens,
+      estimated_tokens: paired.exact_usage ? null : paired.total_tokens,
       implied_usd_per_mtok: implied,
-      usage_source: paired.usage?.usage_source || null,
+      usage_source: paired.usage_source,
+      exact_usage: paired.exact_usage,
       n_pairs: paired.n_pairs,
       n_cost_only: paired.cost_only.length,
       n_estimate_only: paired.estimate_only.length,
       hits,
+      rates_complete: ratesComplete,
+      ranking_complete: hits.length === allHits.length,
+      pricing_policy: table.pricing_policy,
+      pricing_source: table.source,
+      pricing_fetched_at: table.fetched_at,
       same_price_groups: groups.map(group => ({ids: group.ids, ambiguous: group.ids.length > 1})),
       hard_filter: hardOut,
       rate_family: rateFamily,
       text: `花费反推: ${hits[0].label || hits[0].model_key}（比值 ${hits[0].ratio}${hits[0].complete ? '' : ' · 下界'} · 隐含 $${implied}/Mtok · ${paired.n_pairs} 对配对）`,
-      note: '口径：金额是官方逐条 base（Arena 计价真实口径）；token 由转录字数估算（正文+thinking）—— 所以这是可能性排序，不是定论；同价等价类里的模型单靠花费区分不开。',
+      note: `口径：金额是官方逐条 base；费率按 Battle 稳定实测 > Arena 官方参考 > OpenRouter 公开价兜底；token 来源为 ${paired.exact_usage ? '同 message_id 的 Arena 精确 usage' : 'chars-v1 转录字符估算（弱证据）'}。${ratesComplete ? '' : '部分候选缺少本次计费所需费率，成本仅为下界，不能认定唯一。'}这里只作可能性排序；同价模型单靠花费区分不开。`,
     };
   } catch (error) {
     return {error: String(error?.message || error)};
@@ -817,7 +1062,7 @@ async function costReverseBlock(options = {}) {
        命中唯一 + 比值贴合（|log ratio| 阈值内）+ 无同价歧义 ⇒ 允许**单独定名**（用户明确要求）。
 
    允许单独定名的条件（全部满足，缺一不可）：
-   1. 有官方 base 账单 + 同消息估算 token（消息 id 对齐）；
+   1. 比值腿优先用按 message_id 配对的 Arena 精确 usage；chars-v1 转录估算仅作弱排序旁证，不能独立触发定名；
    2. 候选内**只有一个**模型的期望成本落进比值窗口（`PRICE_FINGERPRINT_RATIO` 内），
       第二名明显更远 —— 也就是说价格确实把候选切开了；
    3. 该命中不与任何其他候选同价（同价等价类单靠价格区分不开，禁止定名）。
@@ -841,7 +1086,7 @@ const PRICE_FINGERPRINT_GAP = Math.log(PRICE_FINGERPRINT_GAP_RATIO) / Math.log(C
    与候选集路径的区别只在候选来源：
    · 候选集路径（识别主流程的并行通道）—— 候选由数字指纹给出，价格在小范围里裁决；
    · 全库路径（识别模式选「价格指纹」）—— 用户明确只用价格识别，不借数字候选，
-     直接在全部指纹库模型里比价。
+     直接在 Arena 官方单价表的文本模型里比价（排除按张/秒计价的媒体模型，不依赖数字指纹库）。
    全库比价「无数个价格都贴近」的概率天然更高，所以三条判据（贴合阈值 / 拉不开距离 /
    同价歧义）一条都不能松 —— 这正是 separable 存在的意义：宁可说不确定，也不猜。
 
@@ -858,7 +1103,8 @@ const PRICE_FINGERPRINT_GAP = Math.log(PRICE_FINGERPRINT_GAP_RATIO) / Math.log(C
    两者分歧 → 如实报 `conflict` 且 **separable:false**（绝不凭硬筛选推翻软判据）。 */
 /** 按**四项费率签名**给硬筛选候选分组（v2.19.7）。
  *  费率完全相同的模型属于同一「费率族」—— 单看账单**永远**区分不开，只能报到族这一级。
- *  返回按成员数降序排列的组。 */
+ *  代表组先按 Battle > 官方 > OpenRouter，再按成员数降序；组内也遵循同一来源优先级。
+ *  这里只决定「优先展示哪组」，不会把来源优先级当作身份识别证据。 */
 function rateSignatureGroups(candidates) {
   const map = new Map();
   for (const candidate of Array.isArray(candidates) ? candidates : []) {
@@ -867,7 +1113,21 @@ function rateSignatureGroups(candidates) {
     if (!map.has(sig)) map.set(sig, {rates, models: []});
     map.get(sig).models.push(candidate);
   }
-  return [...map.values()].sort((a, b) => b.models.length - a.models.length);
+  const groups = [...map.values()];
+  for (const group of groups) {
+    group.models.sort((a, b) => pricingSourcePriority(a.price_source) - pricingSourcePriority(b.price_source));
+  }
+  return groups.sort((a, b) =>
+    pricingSourcePriority(a.models[0]?.price_source) - pricingSourcePriority(b.models[0]?.price_source)
+    || b.models.length - a.models.length);
+}
+
+function blockedRateFamilyText(rateFamily) {
+  if (!rateFamily) return '';
+  const lead = rateFamily.price_source === 'arena-battle-observed'
+    ? 'Battle 实测优先旁证指向'
+    : rateFamily.price_source === 'arena-official' ? 'Arena 官方费率旁证指向' : 'OpenRouter 兜底费率旁证指向';
+  return `价格指纹: ${lead} ${rateFamily.text}；但硬筛选仍有 ${rateFamily.members} 个候选、${rateFamily.groups} 个费率组，缺少同 message_id 的 Arena 精确 usage，不能唯一定名`;
 }
 
 /** 跑硬筛选腿并整理成「费率族」结论（v2.19.9 抽出，供价格指纹与花费反推两处复用）。
@@ -882,12 +1142,13 @@ async function hardFamily(table, ids, costPayload) {
     members: hard.candidates.length,
     groups: rateGroups.length,
     rates: topGroup.rates,
-    models: topGroup.models.map(m => ({model_key: m.model_key, display: m.display || m.model_key})),
+    price_source: topGroup.models[0]?.price_source || null,
+    models: topGroup.models.map(m => ({model_key: m.model_key, display: m.display || m.model_key, price_source: m.price_source || null})),
     text: `${topNames.slice(0, 4).join(' / ')}${topNames.length > 4 ? ` 等 ${topNames.length} 个` : ''}（费率完全相同：in $${topGroup.rates.input} / out $${topGroup.rates.output}${topGroup.rates.cache_read != null ? ` / cache读 $${topGroup.rates.cache_read}` : ''} 每 Mtok）`,
   } : null;
   const hardOut = hard ? {
     state: hard.state,
-    candidates: hard.candidates.map(c => ({model_key: c.model_key, display: c.display, counts: c.counts, cache_rate_source: c.cache_rate_source, cache_rate_batch: c.cache_rate_batch})),
+    candidates: hard.candidates.map(c => ({model_key: c.model_key, display: c.display, counts: c.counts, price_source: c.price_source || null, cache_rate_source: c.cache_rate_source, cache_rate_batch: c.cache_rate_batch})),
     partial: hard.partial.length,
     same_price_groups: hard.same_price_groups,
     excluded_media: hard.excluded_media,
@@ -900,11 +1161,12 @@ async function hardFamily(table, ids, costPayload) {
 
 async function priceFingerprintBlock(candidates, options = {}) {
   try {
-    const table = arenaPricingTable(await loadPricingTable());
-    let ids = Array.isArray(candidates) ? [...new Set(candidates.filter(id => typeof id === 'string'))] : [];
+    const table = arenaPricingTable(await loadPricingTable(), options.pageUrl);
+    const requested = Array.isArray(candidates) ? candidates.filter(id => typeof id === 'string') : [];
+    let ids = [...new Set(requested)].filter(id => table.resolve(id).length);
     let scope = 'candidates';
-    if (!ids.length && options.fullBank === true) {
-      /* 主识别候选仅来自 Arena 官方价目，不能用 OpenRouter 的全平台模型池替代 Arena 在售模型。 */
+    if (!requested.length && options.fullBank === true) {
+      /* 全库模式遵循同一费率优先级；OpenRouter 只补 Battle/官方都没有的 key。 */
       ids = table.all().filter(profile => profile.kind !== 'media').map(profile => profile.model_key);
       scope = 'full-bank';
     }
@@ -912,54 +1174,82 @@ async function priceFingerprintBlock(candidates, options = {}) {
     /* v2.19.8：硬筛选腿只依赖**账单的分项费用**，与「账单↔估算能否配对」无关 —— 所以先跑它。
        此前配对失败就整条 return，面板只剩一句「没法配对」、候选列表全空（用户反馈「直接不显示了」），
        而参考扩展在这种账单上照样给得出答案。现在配对失败也把**费率族**报出来。 */
+    const mediaCostCount = nonTokenMediaCostCount(options.costPayload?.messages || netState.officialCost?.messages);
+    if (mediaCostCount) {
+      const note = nonTokenMediaCostNote(mediaCostCount);
+      return {
+        separable: false, exact_usage: false, blocked: 'non-token-media-cost', reason: 'non-token-media-cost',
+        note, text: `价格指纹: ${note}`, scope, arena_only: false, evidence: 'none', evidence_label: '',
+        hard_filter: {state: 'non-token-media-cost', candidates: [], partial: 0, excluded_media: 0, checked_models: 0, note},
+        rate_family: null,
+      };
+    }
     const {hard, hardOut, rateFamily} = await hardFamily(table, ids, options.costPayload);
 
-    const base = await costReverseBlock({candidates: ids, costPayload: options.costPayload});
+    /* This path needs every scored candidate for the ±10% uniqueness test. */
+    const base = await costReverseBlock({candidates: ids, costPayload: options.costPayload, pageUrl: options.pageUrl, fullPriceRanking: true});
     if (!base || base.blocked) {
       /* 配对不上也照样报费率族 —— 它是纯账单分项推出来的，不需要估算 token。 */
       return {
         separable: false,
         reason: base?.blocked || 'no-cost',
         note: [
-          base?.note || '没能拿到官方 base 账单 / 估算 token，价格指纹待命。',
-          '⚠️ 比值判据需要账单与估算按消息 id 配对，本次跑不了 —— 所以下面只有费率结构这一条证据。',
+          base?.note || '没能拿到官方 base 账单 / 同消息 token usage，价格指纹待命。',
+          '⚠️ 比值判据需要与逐条账单配对的 Arena 精确 token 用量；chars-v1 只估输出文字，本次不能用于比价。',
         ].filter(Boolean).join(' '),
         scope,
-        arena_only: true,
+        arena_only: false,
         evidence: rateFamily ? 'rate-family' : 'none',
-        evidence_label: rateFamily ? '费率族（费率结构）' : '',
+        evidence_label: rateFamily ? (rateFamily.price_source === 'arena-battle-observed' ? 'Battle 实测优先旁证（非定名）' : '费率族（费率结构）') : '',
         hard_filter: hardOut,
         rate_family: rateFamily,
         text: rateFamily
-          ? `价格指纹: 费率结构指向 ${rateFamily.text} —— ${rateFamily.models.length} 个模型费率完全相同，单凭账单切不开（比值判据因账单/估算没配上对，本次未参与）`
-          : `价格指纹: 暂无可用的价格证据（${base?.note || '账单与估算没配上对'}）`,
+          ? blockedRateFamilyText(rateFamily)
+          : `价格指纹: 暂无可用的价格证据（${base?.note || '账单与用量没配上对'}）`,
       };
     }
-    const hits = base.hits || [];
-    if (!hits.length) return {separable: false, reason: 'no-priced', note: '候选里没有可折价模型。', scope};
+    const rankedHits = base.hits || [];
+    if (!rankedHits.length) return {separable: false, reason: 'no-priced', note: '候选里没有可折价模型。', scope};
     /* 刻度与 pricing-channel 一致：除数用 ln(CONSISTENT_RATIO)，不是 ln2（v2.19.5 修）。 */
-    const zOf = hit => Math.abs(Math.log(Number(hit.ratio) || 1)) / Math.log(CONSISTENT_RATIO);
-    const best = hits[0];
-    const runnerUp = hits[1] || null;
+    const zOf = hit => Number.isFinite(Number(hit.ratio)) && Number(hit.ratio) > 0
+      ? Math.abs(Math.log(Number(hit.ratio))) / Math.log(CONSISTENT_RATIO) : Infinity;
+    const best = rankedHits[0];
+    const runnerUp = rankedHits[1] || null;
     const bestZ = zOf(best);
     const within = bestZ <= PRICE_FINGERPRINT_Z;
     const separated = !runnerUp || zOf(runnerUp) > bestZ + PRICE_FINGERPRINT_GAP;   // 第二名要明显更远
-    /* v2.19.5：注释说「只有一个模型落进阈值」就得真的数一遍 —— 只比 top1/top2 的 z 差，
-       会把「一堆模型都贴得很近、但恰好 top2 稍远」误判成唯一（实测有 14 个落在 ±15% 内）。 */
-    const withinHits = hits.filter(hit => zOf(hit) <= PRICE_FINGERPRINT_Z);
+    /* v2.19.5：必须数完整候选范围内落窗的模型；top-8 展示截断不能参与唯一性判断。 */
+    const withinHits = rankedHits.filter(hit => zOf(hit) <= PRICE_FINGERPRINT_Z);
     const uniqueInWindow = withinHits.length === 1;
     const bestKey = best.model_key;
-    const ambiguousGroup = (base.same_price_groups || []).find(group => group.ambiguous && group.ids.includes(bestKey));
-    const softSeparable = within && separated && uniqueInWindow && !ambiguousGroup;
+    const windowGroups = withinHits.length
+      ? samePriceGroups(withinHits.map(hit => hit.model_key), table).map(group => ({
+          ids: group.ids,
+          ambiguous: group.ids.length > 1,
+          input_usd_per_mtok: group.input_usd_per_mtok,
+          output_usd_per_mtok: group.output_usd_per_mtok,
+          cache_write_usd_per_mtok: group.cache_write_usd_per_mtok,
+          cache_read_usd_per_mtok: group.cache_read_usd_per_mtok,
+          cache_rate_source: group.cache_rate_source,
+        }))
+      : [];
+    const ambiguousGroup = windowGroups.find(group => group.ambiguous && group.ids.includes(bestKey));
+    const exactUsage = base.exact_usage === true;
+    const allRatesComplete = base.rates_complete === true;
+    const softSeparable = exactUsage && allRatesComplete && best.complete === true && within && separated && uniqueInWindow && !ambiguousGroup;
     const reasons = [];
+    if (!allRatesComplete) reasons.push('候选存在缺失的官方费率或无法折价项，不能把未知候选排除后宣称唯一');
+    if (best.complete !== true) reasons.push('命中候选费率不完整，期望成本只是下界，不能定名');
+    if (!exactUsage) reasons.push('本次只有 chars-v1 转录字符估算（弱证据），不能独立触发模型定名');
     if (!within) reasons.push(`最贴近的 ${best.label || bestKey} 比值 ${best.ratio} 超出贴合窗口（±${Math.round((PRICE_FINGERPRINT_RATIO - 1) * 100)}%）`);
     else if (!uniqueInWindow) reasons.push(`贴合窗口内有 ${withinHits.length} 个模型（${withinHits.slice(0, 3).map(hit => `${hit.label || hit.model_key} ${hit.ratio}`).join('、')}）—— 价格切不开`);
     if (!separated) reasons.push(`与第二名 ${runnerUp.label || runnerUp.model_key}（比值 ${runnerUp.ratio}）拉不开距离`);
     if (ambiguousGroup) reasons.push(`命中与 ${ambiguousGroup.ids.filter(id => id !== bestKey).join('/')} 同价，价格区分不开`);
 
     /* 硬筛选腿与费率族已在函数开头算好（v2.19.8 提前，好让配对失败时也能报出来）。 */
-    /* 比值腿的命中是否落在费率族里？不在 = 已被费率结构否掉。 */
-    const softInFamily = !!rateFamily && !!best && rateFamily.models.some(m => m.model_key === bestKey);
+    /* rateFamily 只是按来源优先级挑出的展示组，不能代表全部合法硬筛选候选。 */
+    const softInFamily = !!hard?.candidates?.some(m =>
+      baseModelName(m.model_key) === baseModelName(best.matched_key || bestKey));
 
     /* 交叉验证：硬筛选唯一解与软判据是否同指一个模型（按基础名比对，容忍变体 key 差异）。
        evidence='both' 的前提是**两条腿都成立且同指** —— 光硬筛选指对了、软判据自己没切开，
@@ -997,7 +1287,7 @@ async function priceFingerprintBlock(candidates, options = {}) {
 
     const separable = softSeparable && evidence !== 'conflict' && !softRefuted;
     const scopeLabel = scope === 'full-bank'
-      ? `Arena 官方模型池 ${ids.length} 个模型里只有它落进 ±${Math.round((PRICE_FINGERPRINT_RATIO - 1) * 100)}% 窗口`
+      ? `Battle 实测/官方/OpenRouter 递补模型池 ${ids.length} 个模型里只有它落进 ±${Math.round((PRICE_FINGERPRINT_RATIO - 1) * 100)}% 窗口`
       : `候选 ${ids.length} 个里只有它落进 ±${Math.round((PRICE_FINGERPRINT_RATIO - 1) * 100)}% 窗口`;
     const evidenceLabel = {both: '硬筛选+软判据一致', 'soft-ratio': '软判据（log 比值）', 'hard-hint': '硬筛选旁证（未交叉确认）', 'rate-family': '费率族（费率结构）', conflict: '两条证据分歧', none: ''}[evidence] || '';
     return {
@@ -1010,17 +1300,36 @@ async function priceFingerprintBlock(candidates, options = {}) {
       /* v2.19.7：费率族 —— 硬筛选候选按四项费率签名分组后的结果（精确版本切不开时报到这一级）。 */
       rate_family: rateFamily,
       scope,
-      arena_only: true,
+      arena_only: false,
       hit: best,
       soft_refuted: softRefuted,
       runner_up: runnerUp,
       candidates: ids.length,
+      price_ranked_models: rankedHits.length,
+      price_window_matches: withinHits.length,
+      price_window_hits: withinHits.slice(0, 8).map(hit => ({
+        model_key: hit.model_key,
+        label: hit.label || hit.model_key,
+        price_source: hit.price_source || null,
+        ratio: hit.ratio,
+        expected_usd: hit.expected_usd,
+        complete: hit.complete,
+        rates: hit.rates || null,
+      })),
       n_pairs: base.n_pairs,
       observed_usd: base.observed_usd,
+      token_count: base.token_count,
       estimated_tokens: base.estimated_tokens,
       implied_usd_per_mtok: base.implied_usd_per_mtok,
       usage_source: base.usage_source,
-      same_price_groups: base.same_price_groups,
+      exact_usage: base.exact_usage,
+      rates_complete: allRatesComplete,
+      pricing_policy: table.pricing_policy,
+      pricing_source: table.source,
+      pricing_fetched_at: table.fetched_at,
+      battle_observed_rates: table.battle_observed_rates,
+      openrouter_supplement: table.openrouter_supplement,
+      same_price_groups: windowGroups,
       cache_rates: table.cache_rates ? {applied: table.cache_rates.applied, source: table.cache_rates.source, caveat: table.cache_rates.caveat} : null,
       /* v2.19.7：结论优先级 —— 定名 > 冲突（不定名） > 费率族/硬筛选旁证 > 如实不定名。
          冲突必须排在费率族之前，否则会被费率族文案盖掉（单测抓出来的）。 */
@@ -1028,25 +1337,26 @@ async function priceFingerprintBlock(candidates, options = {}) {
         if (separable) return `价格指纹: ${best.label || best.model_key}（唯一命中 · 比值 ${best.ratio} · ${scopeLabel}${evidence === 'both' ? ' · 硬筛选一致' : ''}）`;
         if (evidence === 'conflict') return `价格指纹: 不能唯一定名（${reasons.join('；')}）`;
         if (rateFamily) {
-          const only = rateFamily.models.length === 1;
+          const only = hard?.state === 'unique' && hard.candidates.length === 1;
           const head = only
-            ? `费率结构指向 ${rateFamily.models[0].display}（整数反推唯一解${evidence === 'hard-hint' ? '；比值判据未确认，仅作旁证' : ''}）`
-            : `费率结构指向 ${rateFamily.text} —— ${rateFamily.models.length} 个模型费率完全相同，单凭账单切不开`;
+            ? `费率旁证候选 ${rateFamily.models[0].display}（完整费率候选中仅它通过整数检验；不是身份确认${hardOut.partial ? `，另有 ${hardOut.partial} 个费率不全候选未排除` : ''}）`
+            : `费率旁证含 ${hard.candidates.length} 个候选、${rateFamily.groups} 个费率组；展示其中一组：${rateFamily.text}，单凭账单切不开`;
           return `价格指纹: ${head}${softRefuted ? `；比值判据最贴近的 ${best.label || bestKey} 与费率结构不符，已忽略` : ''}`;
         }
         return `价格指纹: 不能唯一定名（${reasons.join('；')}）`;
       })(),
       note: [
         scope === 'full-bank'
-          ? '价格指纹（Arena 模型池）：只在 Arena 官方价目列出的模型里比价；OpenRouter 补充模型不参与最近候选与改名。'
+          ? '价格指纹（全库）：同 key 优先使用已揭示 Battle 的同消息稳定实测费率；无实测时用 Arena 官方价，二者都没有时才用 OpenRouter 公开价。'
           : '价格指纹把候选收窄到唯一一个才可用于定名；同价等价类与比值不贴合一律降级为旁证。',
-        '金额是官方 base / 分项费用，token 是估算。',
+        '费率优先级：Battle 稳定实测 > Arena 官方参考 > OpenRouter 公开价兜底；缺失值不当作免费。',
+        !allRatesComplete ? '本轮当前优先级下的费率覆盖不完整，只能给出旁证，不能认定唯一。' : '',
+        exactUsage
+          ? '金额是官方 base / 分项费用，token 是按相同 message_id 配对的 Arena 精确 usage。'
+          : '金额是官方 base / 分项费用，token 仅为 chars-v1 转录字符估算（弱证据），不能独立触发模型定名。',
         hard ? `硬筛选：${hard.checked_models} 个模型里 ${hard.candidates.length} 个能整除分项账单（已剔除 ${hard.excluded_media} 个按张计价的媒体模型）。` : '',
         hard?.state === 'none' ? '⚠️ 没有任何模型的费率结构能整除这份账单 —— 多半是账单混合了多次调用/多个模型，或该模型不在 Arena 榜单里；此时只靠比值定名的可靠性明显更低。' : '',
         softRefuted ? `⚠️ 比值判据最贴近的 ${best.label || bestKey}（比值 ${best.ratio}）与费率结构冲突，已忽略 —— 比值腿看不到分项结构，账单里缓存读占比高时会系统性偏向贵模型。` : '',
-        hard?.uses_batch_rate ? '⚠️ 命中的缓费率取自 OpenRouter 的 :batch 半价条目，实际口径可能有别。' : '',
-        table.cache_rates ? `缓存费率来自 OpenRouter 公开价目（补 ${table.cache_rates.applied} 条）——非 Arena 官方口径。` : '',
-        table.openrouter_supplement ? `候选池含 OpenRouter 公开价目补充的 ${table.openrouter_supplement.added} 个模型（Arena 榜单之外，如 deepseek / qwen / mistral 系）—— 非 Arena 官方口径。` : '',
       ].filter(Boolean).join(' '),
     };
   } catch (error) {
@@ -1062,16 +1372,22 @@ async function hardFilterLeg(table, ids, costPayload) {
     const cached = netState.officialCost && netState.officialCost.messages ? netState.officialCost.messages : null;
     const messages = (payload && payload.messages) || cached;
     if (!messages || typeof messages !== 'object') return null;
-    /* 取「有分项字段的最后一条」——最近的账单最能代表当前会话的计价口径。 */
-    const entries = Object.values(messages).filter(m => m && typeof m === 'object');
-    let breakdown = null;
-    for (let i = entries.length - 1; i >= 0; i -= 1) {
-      breakdown = normalizeCostBreakdown(entries[i]);
-      if (breakdown && !breakdown.is_fallback) break;
-    }
-    if (!breakdown) return null;
+    /* /cost 的 messages 可能按新→旧排列；对象末尾并不代表最新消息。
+       仅在 ID 均为可排序的 UUIDv7（或只有一条）时定位最新账单，避免把旧消息/其他模型误当当前模型。 */
+    const entries = Object.entries(messages).filter(([, m]) => m && typeof m === 'object');
+    if (!entries.length) return null;
+    if (entries.length > 1 && !entries.every(([id]) => /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))) return null;
+    entries.sort(([a], [b]) => b.localeCompare(a));
+    const latest = entries[0][1];
+    /* 当前单价表无长上下文分档；不能用标准费率对长上下文账单做硬判。 */
+    if (latest.isLongContext === true || latest.actual?.isLongContext === true) return null;
+    const breakdown = normalizeCostBreakdown(latest);
+    if (!breakdown || breakdown.is_fallback ||
+        ![breakdown.input_usd, breakdown.output_usd, breakdown.cache_write_usd, breakdown.cache_read_usd].some(v => v > 0)) return null;
     /* 范围：候选集路径只在指纹候选里筛；全库路径筛全库。 */
-    const keys = Array.isArray(ids) && ids.length ? ids : null;
+    const restricted = Array.isArray(ids) && ids.length > 0;
+    const keys = restricted ? [...new Set(ids.flatMap(id => table.resolve(id)))] : null;
+    if (restricted && !keys.length) return null;
     return hardFilterByCosts(breakdown, table, keys ? {keys} : {});
   } catch {
     return null;   // 硬筛选任何异常都不影响软判据链路
@@ -1561,26 +1877,30 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
              只存数字与字符计数（没有正文），供花费账本在无用量、无 /cost 时使用。
              v2.15.0：另存用户那条消息的字符数作为**输入下界**（input_chars）。 */
           const chars = item.chars && typeof item.chars === 'object' ? item.chars : null;
-          const bucketOf = (value) => (value && typeof value === 'object'
-            ? {chars: Number(value.chars) || 0, cjk: Number(value.cjk) || 0, other: Number(value.other) || 0}
-            : null);
+          const bucketOf = normalizeEstimateBucket;
           if (chars?.text && chars?.reasoning) {
             const messageId = item.message_id ? String(item.message_id).slice(0, 64) : null;
-            const key = `${messageId || ''}|${chars.text.chars || 0},${chars.text.cjk || 0},${chars.text.other || 0}|${chars.reasoning.chars || 0},${chars.reasoning.cjk || 0},${chars.reasoning.other || 0}`;
+            const normalizedChars = {text: bucketOf(chars.text), reasoning: bucketOf(chars.reasoning), skipped_parts: Math.max(0, Math.min(100000, Number(chars.skipped_parts) || 0))};
+            const url = String(item.url || '').slice(0, 200);
+            const key = `${messageId || ''}|${JSON.stringify(normalizedChars)}`;
             const inputChars = bucketOf(item.input_chars);
-            const existing = netState.transcriptEstimates.find(entry => entry.key === key);
+            const existing = netState.transcriptEstimates.find(entry => messageId
+              ? entry.message_id === messageId && entry.url === url : entry.key === key);
             if (existing) {
-              /* 同一条消息可能先被被动路径看到（没有输入侧），后又被主动取转录补齐 —— 补上即可。 */
+              // 同一消息的流式/转录快照更新原条目，不能每长一段就再累计一次。
+              existing.key = key;
+              existing.chars = normalizedChars;
+              existing.at = item.at || Date.now();
               if (!existing.input_chars && inputChars) existing.input_chars = inputChars;
             } else {
               netState.transcriptEstimates.push({
                 key,
                 message_id: messageId,
                 model_id: item.model_id ? String(item.model_id).slice(0, 120) : null,
-                chars: {text: bucketOf(chars.text), reasoning: bucketOf(chars.reasoning)},
+                chars: normalizedChars,
                 input_chars: inputChars,
                 input_message_id: item.input_message_id ? String(item.input_message_id).slice(0, 64) : null,
-                url: String(item.url || '').slice(0, 200),
+                url,
                 at: item.at || Date.now(),
               });
               netState.transcriptEstimates = capped(netState.transcriptEstimates, 120);
@@ -1656,7 +1976,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     (async () => {
       const fromExtensionPage = !sender.tab && isExtensionPage(sender.url);
       if (!fromExtensionPage && (sender.frameId !== 0 || !isAgentUrl(sender.url))) throw Error('单价请求来源无效');
-      const table = await loadPricingTable();
+      const table = arenaPricingTable(await loadPricingTable(), sender.url);
       const ids = Array.isArray(message.ids) ? message.ids.filter(id => typeof id === 'string').slice(0, 40) : [];
       const usage = latestUsage(netState.usageSignals)?.usage || null;
       return {
@@ -1717,7 +2037,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       if (!fromExtensionPage && (sender.frameId !== 0 || !isAgentUrl(sender.url))) throw Error('花费反推请求来源无效');
       const candidates = Array.isArray(message.candidates) ? message.candidates : [];
       const costPayload = message.costPayload && typeof message.costPayload === 'object' ? message.costPayload : null;
-      return await costReverseBlock({candidates, costPayload});
+      return await costReverseBlock({candidates, costPayload, pageUrl: sender.url, fullPriceRanking: message.fullPriceRanking === true});
     })().then(reply, error => reply({error: String(error?.message || error)}));
     return true;
   }
@@ -1730,7 +2050,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const fromExtensionPage = !sender.tab && isExtensionPage(sender.url);
       if (!fromExtensionPage && (sender.frameId !== 0 || !isAgentUrl(sender.url))) throw Error('价格指纹请求来源无效');
       const costPayload = message.costPayload && typeof message.costPayload === 'object' ? message.costPayload : null;
-      return await priceFingerprintBlock([], {costPayload, fullBank: true});
+      return await priceFingerprintBlock([], {costPayload, fullBank: true, pageUrl: sender.url});
     })().then(reply, error => reply({error: String(error?.message || error)}));
     return true;
   }

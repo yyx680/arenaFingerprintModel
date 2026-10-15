@@ -439,6 +439,15 @@ function main() {
     let ownsSolver=false;
     try{
       if(isBlocked()||document.querySelector('#audio-response')?.value.trim()){autoAttempted=true;stopAutoWatch();return;}
+      // Wait for the controls before consuming this document's one automatic attempt.
+      const audioEl=document.querySelector('audio#audio-source');
+      if(audioEl){if(!audioEl.src)return;}
+      else{
+        const audioButton=document.querySelector('#recaptcha-audio-button');
+        if(!audioButton||audioButton.disabled||audioButton.getAttribute('aria-disabled')==='true')return;
+        const rect=audioButton.getBoundingClientRect(),style=getComputedStyle(audioButton);
+        if(rect.width<=0||rect.height<=0||style.visibility==='hidden'||style.display==='none'||Number(style.opacity)===0)return;
+      }
       const state=await browser.runtime.sendMessage({id:'busterAutoClaim'});
       if(!state?.allowed){
         if(state?.reason==='notVisible'||state?.reason==='disabled')return;
@@ -459,9 +468,9 @@ function main() {
   function configureAutomatic(){
     if(!autoEnabled||autoAttempted){stopAutoWatch();return;}
     if(!autoObserver){
-      const changed=entries=>{const entry=entries[entries.length-1];autoViewportVisible=!!entry?.isIntersecting&&entry.intersectionRatio>0&&entry.isVisible!==false;void checkAutomatic();};
-      try{autoObserver=new IntersectionObserver(changed,{threshold:0.01,trackVisibility:true,delay:200});}
-      catch{autoObserver=new IntersectionObserver(changed,{threshold:0.01});}
+      const changed=entries=>{const entry=entries[entries.length-1];autoViewportVisible=!!entry?.isIntersecting&&entry.intersectionRatio>0;void checkAutomatic();};
+      // The parent confirms frame visibility; trackVisibility can reject scaled challenge frames.
+      autoObserver=new IntersectionObserver(changed,{threshold:0.01});
       autoObserver.observe(document.documentElement);
     }
     if(autoTimer===null)autoTimer=window.setInterval(()=>void checkAutomatic(),1000);

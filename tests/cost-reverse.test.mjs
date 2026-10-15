@@ -2,16 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import {pairCostWithEstimates} from '../cost-ledger.js';
+import {pairCostWithEstimates, pairCostWithUsage} from '../cost-ledger.js';
 import * as ledgerMod from '../cost-ledger.js';
 import * as priceMod from '../price-channel.js';
 import * as pricingMod from '../pricing-channel.js';
 import * as usageMod from '../usage-channel.js';
 
-/* ---------- v2.16.1 花费反推（官方逐条 base ÷ 同消息估算 token → 隐含单价排序） ----------
+/* ---------- v2.16.1 花费反推（官方逐条 base ÷ 同消息 usage → 隐含单价排序） ----------
    地基：/cost messages 的 key 与会话包 assistant 消息 id 是同一套 UUID
    （CDP 实测 5/5 完全对齐，dev-scratch/_cdp-id-align.mjs）。
-   金额是 Arena 计价真实口径，token 是转录估算 —— 所以结果是「可能性排序」，
+   金额是 Arena 计价真实口径；优先配精确 usage，没有时才弱回退转录估算 —— 结果始终是「可能性排序」，
    测试逐条盯住这个诚实口径，不让它漂移成定论。 */
 
 const read = name => fs.readFileSync(new URL('../' + name, import.meta.url), 'utf8');
@@ -25,6 +25,14 @@ const est = (message_id, text = 1500, reasoning = 500) => ({
   chars: {
     text: {chars: text, cjk: text, other: 0},
     reasoning: {chars: reasoning, cjk: reasoning, other: 0},
+  },
+});
+
+const exact = (message_id, outputTokens, inputTokens = 0) => ({
+  message_id,
+  usage: {
+    type: 'language_model', usageSource: 'provider', inputTokens, outputTokens,
+    totalTokens: inputTokens + outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0,
   },
 });
 
@@ -87,6 +95,40 @@ test('pairCostWithEstimates：零 token 估算不配对（除零保护）', () =
   assert.deepEqual(paired.cost_only, ['m1'], '估算算不出 token → 账单侧落单，不进 pairs');
 });
 
+test('pairCostWithUsage：精确 usage 优先，且不混入其他消息的 chars-v1 估算', () => {
+  const paired = pairCostWithUsage(
+    {m1: {basePriceUsd: 0.006, totalCostUsd: 0.012}, m2: {basePriceUsd: 0.024, totalCostUsd: 0.048}},
+    [exact('m1', 1000)],
+    [est('m1', 90000, 0), est('m2', 4000, 0)],
+  );
+  assert.equal(paired.exact_usage, true);
+  assert.equal(paired.usage_source, 'message-usage');
+  assert.equal(paired.n_pairs, 1, '只有 exact usage 配上的 m1 进入精确子集');
+  assert.deepEqual(paired.pairs.map(row => row.message_id), ['m1']);
+  assert.equal(paired.total_base_usd, 0.006, '只用 Arena base，不用 totalCostUsd');
+  assert.equal(paired.total_tokens, 1000, '不拿冲突的 chars-v1 估算覆盖精确 usage');
+  assert.deepEqual(paired.cost_only, ['m2'], '精确子集外的账单不被估算凑配');
+  assert.equal(paired.usage.totalTokens, 1000);
+});
+
+test('pairCostWithUsage：图像生成分项费用不参与纯 token 反推', () => {
+  const paired = pairCostWithUsage(
+    {m1: {basePriceUsd: 0.024, actual: {imageGenerationCostUsd: 0.02}}},
+    [exact('m1', 1000)],
+    [est('m1', 90000, 0)],
+  );
+  assert.equal(paired.n_pairs, 0);
+  assert.equal(paired.exact_usage, false);
+  assert.deepEqual(paired.non_token_media_cost, ['m1']);
+  assert.equal(paired.n_non_token_media_cost, 1);
+});
+
+test('pairCostWithUsage：没有 explicit base 时拒绝 totalCostUsd / actualTotalUsd', () => {
+  const paired = pairCostWithUsage({m1: {totalCostUsd: 0.01, actualTotalUsd: 0.01}}, [exact('m1', 1000)], [est('m1')]);
+  assert.equal(paired.n_pairs, 0);
+  assert.deepEqual(paired.cost_only, []);
+});
+
 /* ==================== ② costReverseBlock（background 沙箱） ====================
    work-compat / official-cost 同套路：剥掉 import 行后在 vm 里跑 background.js，
    注入真实模块实现（只有 chrome API 与指纹库是 stub）。 */
@@ -122,11 +164,11 @@ function makeBgApi({bank = null} = {}) {
   return ctx.api;
 }
 
-function resetBg(bg, {official = null, estimates = [], gate = null} = {}) {
+function resetBg(bg, {official = null, estimates = [], messageUsage = [], gate = null} = {}) {
   bg.netState.officialCost = official;
   bg.netState.costRouteSignals = [];
   bg.netState.costSignals = [];
-  bg.netState.messageUsage = [];
+  bg.netState.messageUsage = messageUsage;
   bg.netState.transcriptEstimates = estimates;
   bg.netState.costGate = gate;
   bg.netState.identifiedModel = null;
@@ -158,6 +200,26 @@ test('costReverseBlock：隐含单价精确命中 → 该模型排第一（比�
   assert.match(block.note, /同价等价类/);
 });
 
+test('costReverseBlock：有精确用量时按同 message_id 的逐条 base 排序', async () => {
+  const bg = makeBgApi();
+  resetBg(bg, {
+    official: {session: {actualTotalUsd: 0.072, aggregate: {basePriceUsd: 0.03}}, messages: {
+      m1: {basePriceUsd: 0.006, totalCostUsd: 0.012}, m2: {basePriceUsd: 0.024, totalCostUsd: 0.048},
+    }},
+    estimates: [est('m1', 90000, 0), est('m2', 4000, 0)],
+    messageUsage: [exact('m1', 1000)],
+  });
+  const block = await bg.costReverseBlock({candidates: ['grok-4.5-agent']});
+  assert.equal(block.n_pairs, 1);
+  assert.equal(block.observed_usd, 0.006, 'use the per-message base, not session aggregate or upstream actual');
+  assert.equal(block.token_count, 1000);
+  assert.equal(block.estimated_tokens, null);
+  assert.equal(block.exact_usage, true);
+  assert.equal(block.usage_source, 'message-usage');
+  assert.equal(block.hits[0].model_key, 'grok-4.5-agent');
+  assert.equal(block.hits[0].ratio, 1);
+});
+
 test('costReverseBlock：同价等价类如实标注 ambiguous', async () => {
   const bg = makeBgApi();
   /* glm-5.2 / glm-5.3 都是 1.4/4.4 —— 单靠花费区分不开，必须自己说。 */
@@ -186,6 +248,19 @@ test('costReverseBlock：灰度门拦着 → 待命文案带上门状态码', as
   assert.match(block.note, /403/, '门的状态要带出来，别让用户干等');
 });
 
+test('costReverseBlock：清洗后的 image 费用标记保留并阻止 token-only 定名', async () => {
+  const bg = makeBgApi();
+  const official = bg.cleanOfficialCost({session: null, messages: {m1: {basePriceUsd: 0.024, actual: {
+    basePriceUsd: 0.024, inputTokensCostUsd: 0.001, outputTokensCostUsd: 0.003,
+    imageGenerationCostUsd: 0.02, totalCostUsd: 0.024,
+  }}}});
+  assert.equal(official.messages.m1.non_token_media_cost, true, '后台白名单只保存安全标记');
+  resetBg(bg, {official, messageUsage: [exact('m1', 1000)]});
+  const block = await bg.costReverseBlock({});
+  assert.equal(block.blocked, 'non-token-media-cost');
+  assert.match(block.note, /图像/);
+});
+
 test('costReverseBlock：账单与估算对不上 → no-pairs 带两侧落单数', async () => {
   const bg = makeBgApi();
   resetBg(bg, {
@@ -199,11 +274,13 @@ test('costReverseBlock：账单与估算对不上 → no-pairs 带两侧落单�
   assert.match(block.note, /消息 id/, '说清对不上的原因（不是同一会话）');
 });
 
-test('costReverseBlock：候选全无价 / 指纹库没加载 → no-priced，不硬出排序', async () => {
+test('costReverseBlock：无价候选报 no-priced；缺省候选走 Arena 价表全量池', async () => {
   const bg = makeBgApi({bank: null});
   resetBg(bg, {official: {session: null, messages: {m1: {basePriceUsd: 0.003}}}, estimates: [est('m1')]});
   assert.equal((await bg.costReverseBlock({candidates: ['no-such-model-xyz']})).blocked, 'no-priced', '表里没价的候选');
-  assert.equal((await bg.costReverseBlock({})).blocked, 'no-priced', '候选为空且指纹库 stub 为 null');
+  const fullTable = await bg.costReverseBlock({});
+  assert.equal(fullTable.blocked, undefined, '缺省候选池来自 Arena 价表，与指纹库是否加载无关');
+  assert.ok(fullTable.hits.length, '价表有模型时可进行全量可能性排序');
 });
 
 test('costReverseBlock：浮层传入的原始账单（嵌套 actual）同样能反推', async () => {
@@ -249,6 +326,21 @@ test('ledgerBlock 集成：没有官方账单时 cost_reverse 待命，不影响
   assert.equal(block.mode, 'blocked');
   assert.equal(block.cost_reverse.blocked, 'no-official-cost');
   assert.equal(block.reverse.blocked, 'no-observed-cost');
+});
+
+test('ledgerBlock reverse：用逐条 base 与同 message_id 的精确 usage，不用 session aggregate', async () => {
+  const bg = makeBgApi({bank: {bank: {models: [{id: 'grok-4.5-agent'}]}}});
+  resetBg(bg, {
+    official: {session: {actualTotalUsd: 0.048, aggregate: {basePriceUsd: 0.024}}, messages: {
+      m1: {basePriceUsd: 0.006, totalCostUsd: 0.012}, m2: {basePriceUsd: 0.018, totalCostUsd: 0.036},
+    }},
+    messageUsage: [exact('m1', 1000)],
+  });
+  const block = await bg.ledgerBlock();
+  assert.equal(block.reverse.observed_usd, 0.006);
+  assert.equal(block.reverse.message_id, 'm1');
+  assert.equal(block.reverse.usage_source, 'message-usage');
+  assert.equal(block.reverse.hits[0].model_key, 'grok-4.5-agent');
 });
 
 test('costReverseBlock：估算为空数组 / messages 非对象都不炸', async () => {

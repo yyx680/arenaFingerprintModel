@@ -55,7 +55,7 @@
   const HOST_ID='arena-model-probe-standalone';
   const PREFS_KEY='amp.draw.prefs.v3';
   const LEGACY_PREFS_KEY='amp.draw.prefs.v2';
-  const DEFAULTS=Object.freeze({rounds:5,mode:'price',minPulse:0,blockThinking:false,autoTopUp:true,renameAnyway:false,sceneChannel:true,priceChannel:false});
+  const DEFAULTS=Object.freeze({rounds:5,mode:'price',minPulse:0,blockThinking:false,autoTopUp:true,renameAnyway:false,forceBest:false,sceneChannel:true,priceChannel:false});
   const MODE_LABEL=Object.freeze({quick:'数字指纹',precise:'数字指纹 · 精准 3 题',price:'价格指纹',combined:'组合 · 数字 + 价格'});
   const draw={running:false,cancelled:false,total:0,round:0,completed:0,failed:0,renamed:0,blocked:0,deleted:0,phase:'idle',note:'',results:[]};
   let prefs={...DEFAULTS};
@@ -65,7 +65,7 @@
   let pos=null,dragState=null;
   const POS_KEY='amp.hud.pos.v1';
   let runOneButton,runAllButton,runPriceButton,stopButton,clearButton,progressNode,resultNode,resultModel,resultBadge,resultMetrics,resultBank,traceNode,compactText;
-  let drawInput,drawMode,drawMinPulse,drawBlockThinking,drawAutoTopUp,drawRenameAnyway,drawSceneChannel,drawStartButton,drawStopButton,drawProgressNode,drawResultsNode,balanceNode,balanceNote,balanceButton,diagnoseButton,appendButton;
+  let drawInput,drawMode,drawMinPulse,drawBlockThinking,drawAutoTopUp,drawRenameAnyway,drawForceBest,drawSceneChannel,drawStartButton,drawStopButton,drawProgressNode,drawResultsNode,balanceNode,balanceNote,balanceButton,diagnoseButton,appendButton;
   /* v2.13.2 花费账本节点 */
   let ledgerBox,ledgerSummary,ledgerRatio,ledgerTable,ledgerNote,ledgerButton,ledgerToggle;
   /* v2.19.1 Tab 布局：三个面板 + 页签按钮 + 价格指纹面板节点。 */
@@ -73,7 +73,7 @@
   let fpCard,fpName,fpBadge,fpLine,fpCaveat,fpMeta,costTableWrap,costTableBody,costTableFoot,costTableEmpty,costTableNote,costTableEl;
   /* v2.19.3：未唯一定名时把候选列出来（参考对手插件的呈现 —— 只报「不能定名」看不到候选，用户无从判断）。 */
   let fpCands,fpCandsList;
-  let running=false,cancelled=false,sent=false,targetSession=null,phase='idle',progress='点击即发送真实探针，不再弹出确认';
+  let starting='',running=false,cancelled=false,sent=false,targetSession=null,phase='idle',progress='点击即发送真实探针，不再弹出确认';
   let pendingPrompt='';
   let balanceInfo=null,balanceError='',balanceLoading=false;
   /* v2.13.2 花费账本状态：data 来自后台 AMP_LEDGER；展开明细时才拉取。 */
@@ -179,7 +179,7 @@
   function sanitizePrefs(value){
     // 兼容 2.0.x 的 probesPerChat：3 条 → 精准，其余 → 快速。
     const mode=['price','quick','combined'].includes(value?.mode)?value.mode:(value?.mode==='precise'||value?.probesPerChat===3?'quick':DEFAULTS.mode);
-    return {rounds:clampInt(value?.rounds,1,100,DEFAULTS.rounds),mode,minPulse:clampInt(value?.minPulse,0,100,DEFAULTS.minPulse),blockThinking:value?.blockThinking===true,autoTopUp:value?.autoTopUp!==false,renameAnyway:value?.renameAnyway===true,sceneChannel:value?.sceneChannel!==false,priceChannel:value?.priceChannel===true};
+    return {rounds:clampInt(value?.rounds,1,100,DEFAULTS.rounds),mode,minPulse:clampInt(value?.minPulse,0,100,DEFAULTS.minPulse),blockThinking:value?.blockThinking===true,autoTopUp:value?.autoTopUp!==false,renameAnyway:value?.renameAnyway===true,forceBest:value?.forceBest===true,sceneChannel:value?.sceneChannel!==false,priceChannel:value?.priceChannel===true};
 
 
   }
@@ -303,14 +303,23 @@
           const FP_WINDOW=1.10,FP_GAP_RATIO=1.25,FP_LN_CONSISTENT=Math.log(1.6);
           const fpZ=Math.log(FP_WINDOW)/FP_LN_CONSISTENT,fpGap=Math.log(FP_GAP_RATIO)/FP_LN_CONSISTENT;
           const best=fp.hits[0],runner=fp.hits[1]||null;
-          const zOf=hit=>Math.abs(Math.log(Number(hit.ratio)||1))/FP_LN_CONSISTENT;
+          const zOf=hit=>Number.isFinite(Number(hit.ratio))&&Number(hit.ratio)>0?Math.abs(Math.log(Number(hit.ratio)))/FP_LN_CONSISTENT:Infinity;
           const within=zOf(best)<=fpZ;
           const separated=!runner||zOf(runner)>zOf(best)+fpGap;
-          const uniqueInWindow=fp.hits.filter(hit=>zOf(hit)<=fpZ).length===1;
+          const windowHits=fp.hits.filter(hit=>zOf(hit)<=fpZ);
+          const uniqueInWindow=windowHits.length===1;
           const ambiguous=(fp.same_price_groups||[]).some(group=>group.ambiguous&&group.ids.includes(best.model_key));
-          const ok=within&&separated&&uniqueInWindow&&!ambiguous;
-          fp={separable:ok,hit:best,runner_up:runner,reason:ok?'unique':'not-separable',
-            text:`价格指纹: ${ok?`${best.label||best.model_key}（唯一命中 · 比值 ${best.ratio}）`:`不能唯一定名（候选 ${candidates.length} 个，价格切不开）`}`};
+          const exactUsage=fp.exact_usage===true;
+          const ratesComplete=fp.rates_complete===true&&fp.ranking_complete===true;
+          const ok=exactUsage&&ratesComplete&&best.complete===true&&within&&separated&&uniqueInWindow&&!ambiguous;
+          fp={
+            separable:ok,exact_usage:exactUsage,rates_complete:ratesComplete,usage_source:fp.usage_source,
+            pricing_policy:fp.pricing_policy,pricing_source:fp.pricing_source,pricing_fetched_at:fp.pricing_fetched_at,
+            observed_usd:fp.observed_usd,token_count:fp.token_count,n_pairs:fp.n_pairs,
+            hard_filter:fp.hard_filter,rate_family:fp.rate_family,same_price_groups:fp.same_price_groups,
+            hit:best,runner_up:runner,reason:ok?'unique':'not-separable',
+            text:`价格指纹: ${ok?`${best.label||best.model_key}（唯一命中 · 比值 ${best.ratio}）`:!exactUsage?'不能唯一定名（chars-v1 转录估算为弱证据，不能独立触发定名）':!ratesComplete?'不能唯一定名（官方费率或候选覆盖不完整；未知价格不按 0 处理）':`不能唯一定名（候选 ${candidates.length} 个，价格切不开）`}`,
+          };
         }
       }catch{}
     }
@@ -319,19 +328,31 @@
     lastPriceFingerprint=fp;   // v2.19.1：价格旁证结果也进价格面板
     return {fingerprint:fp,text,label:label||null};
   }
-  /* v2.18.0「价格指纹」独立识别模式：不走数字候选集，直接请后台在全库模型里按价格裁决。
-     用户选择这个模式 = 明确只用价格识别，所以候选范围是全部指纹库模型（scope:'full-bank'）。
+  /* v2.18.0「价格指纹」独立识别模式：不走数字候选集，直接请后台在 Arena 官方单价表里按价格裁决。
+     用户选择这个模式 = 明确只用价格识别，所以候选范围是 Arena 官方文本模型（scope:'full-bank'）。
      全库比价「无数个价格都贴近」的概率天然更高，判据一条不松 —— 切不到唯一就如实说不确定。
      v2.19.0：后台新增硬筛选腿（分项费用整数反推）并与软判据交叉验证 ——
      一致 → separable:true（evidence:'both'）；分歧 → separable:false（evidence:'conflict'）。 */
+  const COST_READY_ATTEMPTS=6,COST_READY_DELAY_MS=900;
+  const costMessageCount=probe=>Object.keys(probe?.payload?.messages||{}).length;
   async function priceModeFor(active){
     syncHudSession();const epoch=hudEpoch;
     lastPriceFingerprint=null;
     let probe=null;
-    try{probe=await probeCostRoute(active);}catch{}
-    syncHudSession();if(epoch!==hudEpoch||active!==session())return {fingerprint:null,text:'会话已切换，丢弃旧结果',label:null};
-    if(probe?.status!==200||probe.reason||!Object.keys(probe.payload?.messages||{}).length){
-      lastPriceFingerprint={separable:false,reason:'no-current-cost',text:'本会话尚无可用的逐条账单，价格识别待命'};
+    const completedAt=Number(records.get(active)?.priceProbe?.completedAt)||0;
+    for(let attempt=0;attempt<COST_READY_ATTEMPTS;attempt+=1){
+      try{probe=await probeCostRoute(active);}catch{probe=null;}
+      syncHudSession();if(epoch!==hudEpoch||active!==session())return {fingerprint:null,text:'会话已切换，丢弃旧结果',label:null};
+      if(probe?.status===200&&!probe.reason&&costMessageCount(probe)>0)break;
+      const freshProbe=completedAt>0&&Date.now()-completedAt<30000;
+      const retryable=!probe||probe.status===0||probe.status===404||(probe.status===200&&!probe.reason);
+      if(!freshProbe||!retryable||attempt===COST_READY_ATTEMPTS-1)break;
+      publish('waiting',`价格回复已结束，账单尚未就绪；正在重试 ${attempt+1}/${COST_READY_ATTEMPTS-1}…`,records.get(active)||null);
+      await sleep(COST_READY_DELAY_MS);
+    }
+    if(probe?.status!==200||probe.reason||costMessageCount(probe)===0){
+      const detail=[probe?.status?`HTTP ${probe.status}`:'无响应',probe?.reason||'',probe?.status===200&&!probe?.reason?'messages 为空':''].filter(Boolean).join(' / ');
+      lastPriceFingerprint={separable:false,reason:'no-current-cost',text:`本会话账单尚未就绪（${detail}），价格识别未执行`};
       return {fingerprint:lastPriceFingerprint,text:lastPriceFingerprint.text,label:null};
     }
     let fp=null;
@@ -340,57 +361,91 @@
     if(!fp||fp.error)return {fingerprint:null,text:fp?.error?`价格指纹: 查询失败（${fp.error}）`:'价格指纹: 未拿到结果',label:null};
     const text=fp.text||fp.note||'';
     lastPriceFingerprint=fp;   // v2.19.1：价格模式裁决结果进价格面板
-    return {fingerprint:fp,text,label:fp.hit?(fp.hit.label||fp.hit.model_key):null};
+    return {fingerprint:fp,text,label:fp.separable===true&&fp.hit?(fp.hit.label||fp.hit.model_key):null};
   }
   function priceChoice(fp){
-    if(!fp||fp.evidence==='conflict'||fp.reason==='conflict')return null;
+    if(!fp)return null;
+    const conflicted=fp.evidence==='conflict'||fp.reason==='conflict';
+    if(conflicted&&!prefs.forceBest)return null;
     const family=fp.rate_family?.models||[],hit=fp.hit;
     /* 后台忽略的软比值不能再进入标题/改名；同价族只能提供代表项，不能提供距离排序。 */
     if(family.length&&(!fp.separable||fp.soft_refuted)){
       const member=family[0],names=family.map(m=>m.display||m.model_key);
-      return {label:member.display||member.model_key,id:member.model_key,kind:family.length>1?'rate-family':'hard-hint',
-        note:family.length>1?`费率同价组代表项（按表顺序取首项，非距离最接近）：${names.join(' / ')} 单凭价格无法区分${(fp.hard_filter?.candidates?.length||0)>family.length?"；其他费率候选也未排除":""}`:'整数反推旁证候选；估算比值未确认，非确定识别'};
+      return {label:member.display||member.model_key,id:member.model_key,kind:family.length>1?'rate-family':'hard-hint',price_source:member.price_source||null,
+        note:family.length>1?`费率同价组代表项（并列时按 Battle 实测 > Arena 官方 > OpenRouter 取代表，非距离最接近）：${names.join(' / ')} 单凭价格无法区分${(fp.hard_filter?.candidates?.length||0)>family.length?"；其他费率候选也未排除":""}`
+          :member.price_source==='arena-battle-observed'?`Battle 稳定实测费率优先旁证；但硬筛选仍有 ${fp.hard_filter?.candidates?.length||1} 个候选且缺少精确 usage，非唯一定名`:'整数反推旁证候选；估算比值未确认，非确定识别'};
     }
-    if(hit&&!fp.soft_refuted)return {label:hit.label||hit.model_key,id:hit.model_key,note:fp.separable?'价格唯一定名':'估算比值最接近（非确定识别）'};
+    if(hit&&!fp.soft_refuted)return {label:hit.label||hit.model_key,id:hit.model_key,kind:'price-match',price_source:hit.price_source||null,note:fp.separable?'唯一价格匹配候选（不等于实际响应模型确认）':'估算比值最接近（非确定识别）'};
     const tied=fp.hard_filter?.candidates?.[0];
-    return tied?{label:tied.display||tied.model_key,id:tied.model_key,kind:'hard-hint',note:'只有整数整除旁证，无法比较远近；取首项作为代表（非确定识别）'}:null;
+    return tied?{label:tied.display||tied.model_key,id:tied.model_key,kind:'hard-hint',price_source:tied.price_source||null,note:'只有整数整除旁证，无法比较远近；取首项作为代表（非确定识别）'}:null;
+  }
+  function forceBestChoice(fp,choice,channel='价格'){
+    if(!fp||!choice||fp.separable===true)return choice;
+    const originalKind=choice.kind;
+    const ambiguity=fp.evidence==='conflict'||fp.reason==='conflict'?'原始证据存在分歧':'原始证据仍有多个合法候选';
+    const forced={...choice,kind:'forced-best',forced:true,note:`用户已勾选“只取最接近”：按 Battle 实测 > Arena 官方 > OpenRouter 与当前${channel}贴合排序，强制定名为 ${choice.label}；${ambiguity}，并非证据自然唯一`};
+    fp.forced_best=true;
+    fp.forced_choice={label:choice.label,model_key:choice.id,price_source:choice.price_source||null,original_kind:originalKind};
+    fp.suggestion=forced;
+    fp.text=forced.note;
+    return forced;
   }
   async function recognitionFor(active,result,mode){
     syncHudSession();const epoch=hudEpoch;
-    const raw=[result?.nearest,...(result?.top3||[])].filter((c,i,all)=>c?.id&&all.findIndex(other=>other?.id===c.id)===i);
+    const raw=[result?.nearest,...(result?.candidates||result?.top3||[])].filter((c,i,all)=>c?.id&&all.findIndex(other=>other?.id===c.id)===i).slice(0,40);
+    const numericOnly=mode!=='price'&&mode!=='combined';
     let candidates=[];
+    let candidateNote='';
     if(mode!=='price'&&raw.length){
       try{
         const prices=await chrome.runtime.sendMessage({type:'AMP_PRICING',ids:raw.map(c=>c.id)});
         const arenaIds=new Set((prices?.candidates||[]).filter(c=>c.arena_listed===true).map(c=>c.id));
         candidates=raw.filter(c=>arenaIds.has(c.id));
-      }catch{}
+        candidateNote=prices?.error?'当前模式候选价目读取失败':!candidates.length?'数字参考候选未匹配当前模式的 Arena 价目':'';
+      }catch{candidateNote='当前模式候选价目读取失败';}
       syncHudSession();if(epoch!==hudEpoch||active!==session())return null;
+    }
+    if(numericOnly){
+      const nearest=candidates[0];
+      const decision=result?.signals?.decision||result?.decision||null;
+      const candidate=nearest?.id?{label:nearest.display_name||nearest.id,id:nearest.id,kind:'numeric',note:'数字指纹最近候选（非确定识别）'}:null;
+      if(!candidate)return {label:null,id:null,kind:'numeric-inconclusive',note:candidateNote||'没有可用数字结果'};
+      const confident=nearest.id===result?.nearest?.id&&result?.status==='clear'&&decision?.set_size===1&&!decision?.off_reference;
+      if(confident&&candidate)return {...candidate,kind:'numeric-clear',note:'数字指纹清晰、统计置信集唯一且非混合/漂移（不等同于 provider trace 确认）'};
+      if(prefs.forceBest)return {...candidate,kind:'forced-best',forced:true,note:`用户已勾选“只取最接近”：强制定名为 ${candidate.label}；原数字证据仍有歧义，并非证据自然唯一`};
+      if(nearest.id!==result?.nearest?.id&&!prefs.renameAnyway)return {label:null,id:null,kind:'numeric-inconclusive',note:`原数字最近参考不在当前模式价目中；池内候选 ${candidate.label} 不能继承原置信结论`};
+      return prefs.renameAnyway?candidate:null;
     }
     const nearest=candidates[0];
     const numeric=nearest?{label:nearest.display_name||nearest.id,id:nearest.id,note:'Arena 模型池内数字最接近（候选排序，非确定识别）'}:null;
-    if(mode!=='price'&&mode!=='combined')return numeric;
     if(mode==='price'||!numeric){
       const pm=await priceModeFor(active);
-      const choice=priceChoice(pm?.fingerprint);
+      let choice=priceChoice(pm?.fingerprint);
+      const fallbackNote=mode==='combined'?`${candidateNote||'未取得有效数字结果'}；本次仅展示价格证据，不是组合确认`:'';
+      if(choice&&pm?.fingerprint&&prefs.forceBest&&pm.fingerprint.separable!==true)choice=forceBestChoice(pm.fingerprint,choice,'价格');
       if(choice&&pm?.fingerprint)pm.fingerprint.suggestion=choice;
-      return choice?{...choice,note:[mode==='combined'?'组合模式缺少数字结果，退回价格排序':'',choice.note,pm?.text].filter(Boolean).join(' · ')}:null;
+      if(pm?.fingerprint&&pm.fingerprint.separable!==true&&!pm.fingerprint.forced_best){
+        const hint=choice?.label?`${choice.kind==='price-match'?'价格比值候选':'费率旁证代表项'} ${choice.label}；${choice.note}；不作为识别标签`:'价格证据未能唯一分离模型，暂不定名';
+        return {label:null,id:null,kind:'price-inconclusive',note:[fallbackNote,hint,pm?.text].filter(Boolean).join(' · ')};
+      }
+      return choice?{...choice,note:[fallbackNote,choice.note,pm?.text].filter(Boolean).join(' · ')}:null;
     }
     syncHudSession();if(epoch!==hudEpoch||active!==session())return null;
     let reverse=null;
     try{
       const probe=await probeCostRoute(active);
       syncHudSession();if(epoch!==hudEpoch||active!==session())return null;
-      if(probe?.status===200&&!probe.reason&&Object.keys(probe.payload?.messages||{}).length)reverse=await chrome.runtime.sendMessage({type:'AMP_COST_REVERSE',candidates:candidates.map(c=>c.id),costPayload:probe?.status===200&&!probe.reason?probe.payload:null});
+      if(probe?.status===200&&!probe.reason&&Object.keys(probe.payload?.messages||{}).length)reverse=await chrome.runtime.sendMessage({type:'AMP_COST_REVERSE',candidates:candidates.map(c=>c.id),fullPriceRanking:true,costPayload:probe?.status===200&&!probe.reason?probe.payload:null});
       else reverse={blocked:'no-current-cost',note:'本会话尚无可用的逐条账单'};
     }catch{}
     syncHudSession();if(epoch!==hudEpoch||active!==session())return null;
     const ranked=[];
-    if(!reverse?.blocked&&!reverse?.error){
+    if(!reverse?.blocked&&!reverse?.error&&reverse?.exact_usage===true){
       for(const hit of reverse?.hits||[]){
         const candidate=candidates.find(c=>c.id===hit.model_key);
-        const fit=Number(candidate?.fit??(candidate?.id===result.nearest.id?result.signals?.fit:null));
-        if(!candidate||!Number.isFinite(fit)||!(Number(hit.ratio)>0))continue;
+        const rawFit=candidate?.fit??(candidate?.id===result?.nearest?.id?result?.signals?.fit:null);
+        const fit=rawFit==null?NaN:Number(rawFit);
+        if(!candidate||!Number.isFinite(fit)||fit<=0||hit.complete!==true||!Number.isFinite(Number(hit.ratio))||!(Number(hit.ratio)>0))continue;
         const z=Math.log(Number(hit.ratio))/Math.log(1.6);
         const score=Math.max(0,Math.min(1,fit))*Math.exp(-0.5*z*z)*(hit.complete?1:0.6);
         ranked.push({candidate,hit,score});
@@ -398,38 +453,47 @@
     }
     ranked.sort((a,b)=>b.score-a.score);
     if(!ranked.length){
-      lastPriceFingerprint={separable:false,scope:'candidates',reason:'no-price',text:'组合模式：价格数据不可用，退回数字排序',note:reverse?.note||reverse?.error||'没有可联合排序的价格数据'};
-      return {...numeric,note:`组合模式：价格数据不可用，退回数字排序 · ${reverse?.note||reverse?.error||''}`};
+      const note=reverse?.exact_usage===false?'价格 token 仅为字符估算，不参与数字联合评分':reverse?.note||reverse?.error||'缺少精确 usage、完整费率或有效数字分数';
+      lastPriceFingerprint={...reverse,separable:false,scope:'candidates',reason:'no-price',text:'组合模式：缺少可靠价格证据，仅展示数字候选',note};
+      return {...numeric,note:`组合模式：缺少可靠价格证据，仅展示数字候选（非组合确认） · ${note}`};
     }
     const best=ranked[0],runner=ranked[1];
     const choice={label:best.candidate.display_name||best.candidate.id,id:best.candidate.id,note:`Arena 模型池内组合最接近 · 数字拟合 × 价格贴合度 ${best.score.toFixed(4)}（启发式排序，非确定识别）`};
     lastPriceFingerprint={separable:false,scope:'candidates',reason:'combined-ranking',evidence_label:'组合排序',hit:{...best.hit,label:choice.label},runner_up:runner?.hit||null,hard_filter:reverse?.hard_filter,rate_family:reverse?.rate_family,suggestion:choice,text:choice.note,note:'在数字候选中联合排序；缺失单价的模型不参与组合评分'};
-    return choice;
+    return prefs.forceBest?forceBestChoice(lastPriceFingerprint,choice,'组合'):choice;
   }
   async function finishRecognition(active,record,mode,index=null){
     syncHudSession();const epoch=hudEpoch;
     const choice=await recognitionFor(active,record.result,mode);
     syncHudSession();if(epoch!==hudEpoch||active!==session())return {sessionId:active,label:'会话已切换',verdict:'旧结果已丢弃',status:'stale',renamed:false,renameNote:'会话已切换',fit:null,separation:null};
-    record.recognition={mode,label:choice?.label||null,id:choice?.id||null,note:choice?.note||'Arena 官方价目内没有可用候选'};
     const result=record.result;
-    const verdict=choice?.note||'没有可用候选';
+    const numericOnly=mode!=='price'&&mode!=='combined';
+    record.recognition=numericOnly?null:{mode,label:choice?.label||null,id:choice?.id||null,forced:choice?.kind==='forced-best',note:choice?.note||'Arena 官方价目内没有可用候选'};
+    const keepClassifierVerdict=numericOnly&&!choice;
+    const fallbackLabel=keepClassifierVerdict?resultLabelOf(result):'暂无候选';
+    const verdict=choice?.note||(keepClassifierVerdict?verdictOf(result):'没有可用候选');
     let renamed=false,renameNote=prefs.renameAnyway?'无可用候选，未改名':'未勾选改名';
     const announce=(phase,text)=>index===null?publish(phase,text,record):publishDraw(phase,`第 ${index} 轮：${text}`);
     if(choice?.label&&active&&prefs.renameAnyway&&!cancelled){
-      announce('renaming',`按${choice.kind==='rate-family'?'同价组代表项':choice.kind==='hard-hint'?'费率旁证候选':'最接近候选'}重命名为 ${choice.label}…`);
+      announce('renaming',`按${choice.kind==='forced-best'?'用户强制最优':choice.kind==='rate-family'?'同价组代表项':choice.kind==='hard-hint'?'费率旁证候选':'最接近候选'}重命名为 ${choice.label}…`);
       try{
         const done=await globalThis.ArenaProbeRename.rename({sessionId:active,title:choice.label,isCurrent:()=>!cancelled&&session()===active});
         renamed=true;record.renameTitle=done.title;record.renameError='';renameNote=done.unchanged?'名称已一致':`已重命名为 ${done.title}`;
       }catch(error){record.renameError=error?.message||'重命名失败';renameNote=`重命名失败：${record.renameError}`;}
     }
-    announce('done',`${MODE_LABEL[mode]||MODE_LABEL.quick}：${choice?.label||'暂无候选'} · ${verdict} · ${renameNote}`);
-    return {sessionId:active,label:choice?.label||'暂无候选',verdict,status:mode==='price'?'price':mode==='combined'?'combined':result?.status||'none',renamed,renameNote,fit:Number.isFinite(Number(result?.signals?.fit))?Number(result.signals.fit):null,separation:Number.isFinite(Number(result?.signals?.separation))?Number(result.signals.separation):null,top3:topThreeOf(result),byPrice:mode==='price'};
+    const finalLabel=choice?.label||(keepClassifierVerdict?resultLabelOf(result):fallbackLabel);
+    announce('done',`${MODE_LABEL[mode]||MODE_LABEL.quick}：${finalLabel} · ${verdict} · ${renameNote}`);
+    return {sessionId:active,label:finalLabel,verdict,status:mode==='price'?'price':mode==='combined'?'combined':result?.status||'none',renamed,renameNote,fit:Number.isFinite(Number(result?.signals?.fit))?Number(result.signals.fit):null,separation:Number.isFinite(Number(result?.signals?.separation))?Number(result.signals.separation):null,top3:topThreeOf(result),byPrice:mode==='price'};
   }
   /* v2.19.0：价格指纹结论的**披露附注** —— 借鉴参考扩展 cost-browser-extension 的保守措辞。
      三件事必须说清：① 硬筛选结果与来源；② 单次调用口径未验证；③ 缓存费率非官方口径。 */
   function priceFingerprintCaveat(fp){
     if(!fp||typeof fp!=='object')return '';
     const bits=[];
+    if(fp.forced_best){
+      const forced=fp.forced_choice;
+      bits.push(`⚠️ 用户已开启“只取最接近”：顶部名称强制定为 ${forced?.label||forced?.model_key||'当前第一名'}；原始证据仍有歧义，下方候选与证据照常保留`);
+    }
     const hard=fp.hard_filter;
     if(hard){
       if(hard.state==='unique')bits.push(`硬筛选：${hard.checked_models} 个模型里只此一个能整除分项账单`);
@@ -442,7 +506,7 @@
     if(fp.evidence==='both')bits.push('硬筛选与软判据同指一个模型');
     else if(fp.evidence==='conflict'){
       const c=fp.conflict||{};
-      bits.push(`⚠️ 两条证据分歧：整数反推指向 ${c.hard_label||c.hard||'—'}，比值判据指向 ${c.soft_label||c.soft||'—'} —— 故不定名`);
+      bits.push(`⚠️ 两条证据分歧：整数反推指向 ${c.hard_label||c.hard||'—'}，比值判据指向 ${c.soft_label||c.soft||'—'} —— ${fp.forced_best?'原始证据不能自然定名':'故不定名'}`);
     }
     else if(fp.evidence==='hard-hint')bits.push('硬筛选给出唯一解，但软判据未确认，仅作旁证');
     if(fp.cache_rates?.applied)bits.push(`缓存费率补自 OpenRouter 公开价目（${fp.cache_rates.applied} 条），非 Arena 官方口径`);
@@ -502,9 +566,9 @@
     syncHudSession();
     const id=session(),record=id?records.get(id)||null:null;
     return {
-      running:running||draw.running,
-      phase:running?phase:(draw.running?draw.phase:(record?.phase||phase)),
-      progress:running?progress:(draw.note||record?.progress||progress),
+      running:!!starting||running||draw.running,
+      phase:(starting||running)?phase:(draw.running?draw.phase:(record?.phase||phase)),
+      progress:(starting||running)?progress:(draw.note||record?.progress||progress),
       sessionId:id,
       samples:record?.samples.length||0,
       continueClicks:record?.continueClicks||0,
@@ -512,7 +576,7 @@
       recognition:record?.recognition||null,
       check:record?.lastCheck||null,
       trace:globalThis.__ampTrace||null,
-      draw:{running:draw.running,phase:draw.phase,note:draw.note,round:draw.round,total:draw.total,completed:draw.completed,failed:draw.failed,renamed:draw.renamed,results:draw.results.slice(0,10)},
+      draw:{running:starting==='draw'||draw.running,phase:draw.phase,note:draw.note,round:draw.round,total:draw.total,completed:draw.completed,failed:draw.failed,renamed:draw.renamed,results:draw.results.slice(0,10)},
       prefs:{...prefs},
       balance:balanceInfo,balanceError,balanceLoading,
       /* v2.13.2 花费账本摘要（给弹窗用，行数截断保持轻量）。 */
@@ -532,11 +596,11 @@
   }
   function publish(nextPhase,text,record=null){if(record&&session()&&records.get(session())!==record)return;phase=nextPhase;progress=text;if(record){record.phase=nextPhase;record.progress=text;}paint();}
   function publishDraw(nextPhase,text){draw.phase=nextPhase;draw.note=text;progress=text;paint();}
-  function visibleRecaptchaChallenge(expectedUrl=null){
+  function visibleRecaptchaChallenge(expectedUrl=null,kind='bframe'){
     return Array.from(document.querySelectorAll('iframe')).some(frame=>{
       try{
         const url=new URL(frame.getAttribute('src')||'',location.href);
-        if(url.protocol!=='https:'||!['google.com','www.google.com','recaptcha.net','www.recaptcha.net'].includes(url.hostname)||!/^\/recaptcha\/(?:api2|enterprise)\/bframe$/.test(url.pathname))return false;
+        if(url.protocol!=='https:'||!['google.com','www.google.com','recaptcha.net','www.recaptcha.net'].includes(url.hostname)||!/^\/recaptcha\/(?:api2|enterprise)\/(?:bframe|anchor)$/.test(url.pathname)||!url.pathname.endsWith('/'+kind))return false;
         if(expectedUrl){const expected=new URL(expectedUrl);expected.hash='';url.hash='';if(expected.href!==url.href)return false;}
         const rect=frame.getBoundingClientRect();
         if(rect.width<10||rect.height<10||rect.bottom<=0||rect.right<=0||rect.top>=innerHeight||rect.left>=innerWidth)return false;
@@ -874,21 +938,27 @@
     pendingPrompt='';
     return active;
   }
-  async function run(mode=prefs.mode){if(foldOn)unfoldAll();
-    if(running||draw.running)return publicStatus();
-    await ensureDebug(true);
-    const precise=mode==='precise';
-    const priceMode=mode==='price',combinedMode=mode==='combined';
-    guard();draw.note='';let active=session(),record=active?records.get(active)||newRecord():newRecord();
-    if(active&&!records.has(active))records.set(active,record);
-    record.recognition=null;
-    const first=planFor(record,precise?'precise':'quick');
-    if(!first.length&&!priceMode&&!combinedMode){publish('done','当前聊天三道题都已问过；清除结果或新建聊天后可重新探测',record);return publicStatus();}
-    const goal=priceMode?record.samples.length+1:(precise?3:(prefs.autoTopUp?3:record.samples.length+1));
-    running=true;cancelled=false;sent=false;targetSession=active;
-    if(foldOn)unfoldAll();
-    publish('checking',priceMode?'价格指纹模式：发 1 条简短计算任务取官方账单，在 Arena 模型池里按价格裁决（勾选改名时采用最接近候选）':(combinedMode?'组合模式：数字候选按数字拟合 × 价格贴合度联合排序；勾选改名时采用最接近候选':precise?'精准模式：依次问完三道题（3 条回复）':prefs.autoTopUp?'快速模式：随机 1 题；判定不是“清晰匹配”时自动补题加强证据（最多 3 题）':`快速模式：随机发第 ${first[0]+1} 题（1 条回复）`),record);
+  async function run(mode=prefs.mode){
+    if(starting||running||draw.running)return publicStatus();
+    starting='run';cancelled=false;draw.note='';
+    const startPath=location.pathname;
+    let record=currentRecord();
+    publish('checking','正在准备识别…');
     try{
+      await ensureDebug(true);
+      guard();
+      if(location.pathname!==startPath)throw fatal('已切换页面，启动已取消');
+      const precise=mode==='precise';
+      const priceMode=mode==='price',combinedMode=mode==='combined';
+      let active=session();record=active?records.get(active)||newRecord():newRecord();
+      if(active&&!records.has(active))records.set(active,record);
+      record.recognition=null;
+      const first=planFor(record,precise?'precise':'quick');
+      if(!first.length&&!priceMode&&!combinedMode){starting='';publish('done','当前聊天三道题都已问过；清除结果或新建聊天后可重新探测',record);return publicStatus();}
+      const goal=priceMode?record.samples.length+1:(precise?3:(prefs.autoTopUp?3:record.samples.length+1));
+      starting='';running=true;sent=false;targetSession=active;
+      if(foldOn)unfoldAll();
+      publish('checking',priceMode?'价格指纹模式：发 1 条简短计算任务取官方账单，在 Arena 模型池里按价格裁决（勾选改名时采用最接近候选）':(combinedMode?'组合模式：数字候选按数字拟合 × 价格贴合度联合排序；勾选改名时采用最接近候选':precise?'精准模式：依次问完三道题（3 条回复）':prefs.autoTopUp?'快速模式：随机 1 题；判定不是“清晰匹配”时自动补题加强证据（最多 3 题）':`快速模式：随机发第 ${first[0]+1} 题（1 条回复）`),record);
       while(record.samples.length<goal){
         const plan=priceMode?[0]:planFor(record,precise?'precise':'quick');
         if(!plan.length)break;
@@ -909,12 +979,12 @@
       if(!priceMode&&active&&!cancelled){try{textNote=await textBankScoreActive(active,'文本通道');}catch{}}
       await finishRecognition(active,record,mode);
       if(textNote)publish('done',`${progress}${textNote}`,record);
-    }catch(error){publish(cancelled?'stopped':'error',error?.message||'自动探测失败',record);}
-    finally{running=false;sent=false;targetSession=null;paint();}
+    }catch(error){const note=error?.message||'自动探测失败';if(starting)draw.note=note;publish(cancelled?'stopped':'error',note,record);}
+    finally{starting='';running=false;sent=false;targetSession=null;paint();}
     return publicStatus();
   }
-  function stop(){if(running){cancelled=true;publish('stopping','正在停止；不会再发送下一条');}return publicStatus();}
-  function clearCurrent(){if(running||draw.running)return publicStatus();const id=session();if(id)records.delete(id);phase='idle';draw.note='';lastPriceFingerprint=null;progress='当前聊天的内存结果已清除；可重新选择模式并开始识别';paint();return publicStatus();}
+  function stop(){if(starting||running){cancelled=true;publish('stopping','正在停止；不会再发送下一条');}return publicStatus();}
+  function clearCurrent(){if(starting||running||draw.running)return publicStatus();const id=session();if(id)records.delete(id);phase='idle';draw.note='';lastPriceFingerprint=null;progress='当前聊天的内存结果已清除；可重新选择模式并开始识别';paint();return publicStatus();}
 
   /* ---------- 自动抽卡：New Chat → 发探针 → 识别 → 重命名 → 下一轮 ---------- */
   function press(element){
@@ -1324,24 +1394,28 @@
     }
     const view=fp||cr;
     const separable=view.separable===true&&!!view.hit;
+    const forced=view.forced_best===true&&!!view.forced_choice;
     /* v2.19.7：定不了名但有**费率族**时，标题直接报族（如「Claude Haiku 5.5 / GPT Luna」），
        别只写「未唯一定名」—— 用户要的是能用的结论。费率族 = 费率完全相同的模型集合，
        单凭账单永远切不开，只能报到这一级。 */
     const fam=view.rate_family||null;
     const famNames=fam?fam.models.map(m=>m.display||m.model_key):[];
-    const name=separable?(view.hit?.label||view.hit?.model_key||'—')
+    const decidedHit=forced?view.forced_choice:view.hit;
+    const name=forced?`${decidedHit?.label||decidedHit?.model_key||'—'}（用户强制）`:separable?(decidedHit?.label||decidedHit?.model_key||'—')
       :view.suggestion?`${view.suggestion.label}（${view.suggestion.kind==='rate-family'?'同价组代表项':view.suggestion.kind==='hard-hint'?'费率旁证候选':'最接近候选'}）`:fam?(famNames.slice(0,2).join(' / ')+(famNames.length>2?` 等 ${famNames.length} 个`:''))
       :'未唯一定名';
     fpName.textContent=name;
     fpName.dataset.tone=separable?'ok':'warn';
     const evLabel=view.evidence_label||'';
-    fpBadge.textContent=separable?(evLabel||'唯一定名'):(view.suggestion?(view.suggestion.kind==='rate-family'?'同价并列':view.suggestion.kind==='hard-hint'?'费率旁证':'候选排序'):view.reason==='conflict'?'证据分歧':(fam?'费率族':'不能定名'));
-    fpBadge.dataset.tone=separable?'ok':(view.reason==='conflict'?'warn':(fam?'warn':'muted'));
-    fpCard.dataset.level=separable?'ok':(view.reason==='conflict'?'conflict':(fam?'conflict':'none'));
+    fpBadge.textContent=forced?'用户强制定名':separable?(evLabel||'唯一定名'):(view.suggestion?(view.suggestion.kind==='rate-family'?'同价并列':view.suggestion.kind==='hard-hint'?'费率旁证':'候选排序'):view.reason==='conflict'?'证据分歧':(fam?'费率族':'不能定名'));
+    fpBadge.dataset.tone=separable?'ok':(forced||view.reason==='conflict'?'warn':(fam?'warn':'muted'));
+    fpCard.dataset.level=separable?'ok':(forced||view.reason==='conflict'?'conflict':(fam?'conflict':'none'));
     fpLine.textContent=view.text||view.note||'';
     /* 依据：范围 / 命中比值 / 硬筛选统计 */
     const metaBits=[];
     if(view.scope)metaBits.push(`范围 ${view.arena_only?'Arena 官方模型池':view.scope==='full-bank'?'全库':'候选集'}`);
+    if(forced)metaBits.push('用户强制结果 · 原始证据未唯一');
+    if(Number.isFinite(Number(view.price_window_matches))&&Number.isFinite(Number(view.price_ranked_models)))metaBits.push(`±10% 窗口 ${view.price_window_matches}/${view.price_ranked_models}`);
     if(separable&&view.hit)metaBits.push(`比值 ${view.hit.ratio} · 隐含 $${view.implied_usd_per_mtok??'—'}/Mtok · ${view.n_pairs||0} 对配对`);
     if(view.hard_filter)metaBits.push(`硬筛选 ${view.hard_filter.checked_models||0} 个模型里 ${view.hard_filter.state==='unique'?1:(view.hard_filter.candidates?.length||0)} 个能整除`);
     fpMeta.textContent=metaBits.join(' · ');
@@ -1356,6 +1430,36 @@
   function renderPriceCandidates(view,separable){
     if(!fpCands)return;
     const rows=[];
+    const formatRate=value=>{
+      const number=Number(value);
+      return value==null||!Number.isFinite(number)?'—':`$${Number(number.toFixed(6))}`;
+    };
+    const priceSourceLabel=source=>({
+      'arena-battle-observed':'Battle 稳定实测',
+      'arena-official':'Arena 官方',
+      'openrouter-public':'OpenRouter 兜底',
+    })[source]||String(source||'');
+    const priceEvidence=item=>{
+      const bits=[];
+      const rates=item?.rates;
+      if(rates){
+        bits.push(`单价（USD/Mtok）：输入 ${formatRate(rates.input_usd_per_mtok)} / 输出 ${formatRate(rates.output_usd_per_mtok)}`);
+        if(rates.cache_read_usd_per_mtok!=null||rates.cache_write_usd_per_mtok!=null){
+          const source=rates.cache_rate_source==='openrouter-public'?'（OpenRouter 公开）':'';
+          const batch=rates.cache_rate_batch===true?' · batch 半价':'';
+          bits.push(`缓存读/写 ${formatRate(rates.cache_read_usd_per_mtok)} / ${formatRate(rates.cache_write_usd_per_mtok)}${source}${batch}`);
+        }
+      }
+      if(item?.price_source)bits.push(`主费率 ${priceSourceLabel(item.price_source)}`);
+      if(item?.ratio!=null)bits.push(`比值 ${item.ratio}`);
+      if(item?.expected_usd!=null){
+        const expected=`期望 ${ledgerUsd(item.expected_usd)}`;
+        bits.push(view?.observed_usd!=null?`${expected} / 账单 ${ledgerUsd(view.observed_usd)}`:expected);
+      }
+      if(item?.implied_usd_per_mtok!=null)bits.push(`隐含 $${item.implied_usd_per_mtok}/Mtok`);
+      if(item?.complete===false)bits.push('缓存费率不全（下界）');
+      return bits.join(' · ');
+    };
     if(separable){fpCands.hidden=true;fpCandsList.textContent='';return;}
     const hard=view?.hard_filter;
     const list=Array.isArray(hard?.candidates)?hard.candidates:[];
@@ -1365,16 +1469,27 @@
         const bits=[];
         const counts=c.counts||{};
         bits.push(`O=${counts.O??'—'} R=${counts.R??'—'}`);
+        if(c.price_source)bits.push(`主费率 ${priceSourceLabel(c.price_source)}`);
         if(c.cache_rate_source)bits.push(`缓存费率 ${String(c.cache_rate_source).replace('openrouter-public','OpenRouter 公开')}`);
         if(c.cache_rate_batch)bits.push('⚠️ :batch 半价');
         rows.push([c.display||c.model_key,bits.join(' · ')]);
       }
     }
     const hit=view?.hit,runner=view?.runner_up;
-    if(hit||runner){
+    const windowHits=Array.isArray(view?.price_window_hits)?view.price_window_hits:[];
+    const windowCount=Number(view?.price_window_matches),rankedCount=Number(view?.price_ranked_models);
+    const hasFullWindow=Number.isFinite(windowCount)&&Number.isFinite(rankedCount);
+    if(hasFullWindow){
+      rows.push(['±10% 价格窗口',`${windowCount} / ${rankedCount} 个可计价候选`]);
+      for(const item of windowHits)rows.push([item.label||item.model_key,`窗口内 · ${priceEvidence(item)}`]);
+      if(windowCount>windowHits.length)rows.push(['其余贴合候选',`还有 ${windowCount-windowHits.length} 个未展开`]);
+      const shown=new Set(windowHits.map(item=>item.model_key));
+      if(hit&&!shown.has(hit.model_key))rows.push([hit.label||hit.model_key,`最接近候选 · ${priceEvidence(hit)}`]);
+      if(runner&&!shown.has(runner.model_key))rows.push([runner.label||runner.model_key,`第二名 · ${priceEvidence(runner)}`]);
+    }else if(hit||runner){
       const soft=[];
-      if(hit)soft.push([hit.label||hit.model_key,`软判据最贴近 · 比值 ${hit.ratio}${hit.implied_usd_per_mtok?` · 隐含 $${hit.implied_usd_per_mtok}/Mtok`:''}`]);
-      if(runner)soft.push([runner.label||runner.model_key,`第二名 · 比值 ${runner.ratio}`]);
+      if(hit)soft.push([hit.label||hit.model_key,`软判据最贴近 · ${priceEvidence(hit)}`]);
+      if(runner)soft.push([runner.label||runner.model_key,`第二名 · ${priceEvidence(runner)}`]);
       rows.push(['log 比值',runner?'比值拉不开距离（两条腿都没切开）':'仅一条腿成立']);
       rows.push(...soft);
     }
@@ -1421,10 +1536,14 @@
         head.append(el('b',null,`#${row.index}`));
         head.append(el('span',null,String(row.message_id||'—').slice(0,8)));
         head.append(el('span',null,row.model?String(row.model).replace(/-agent$/,''):(official?'官方计费':'模型未揭晓')));
-        head.append(el('span',null,official?'服务端口径':`${row.tokens||0}t${row.estimate?'（估算）':''}`));
+        const tokenLabel=el('span',null,official?'服务端口径':`${row.estimate?'约 ':''}${row.tokens||0}t${row.estimate?'（估算）':''}`);
+        if(row.estimate)tokenLabel.title=row.estimate.note||'可见文本估算，非服务端计费用量';
+        head.append(tokenLabel);
         head.append(el('span','ledger-usd',ledgerUsd(row.base_usd)));
         line.append(head);
         const sub=[];
+        if(row.estimate?.output_range)sub.push(`可见输出参考 ${row.estimate.output_range.low}–${row.estimate.output_range.high}t（未校准，非计费总量范围）`);
+        if(row.estimate?.skipped_parts)sub.push(`${row.estimate.skipped_parts} 个非文本片段未计入`);
         if(row.actual_usd!==null&&row.actual_usd!==undefined&&row.actual_usd!==row.base_usd)sub.push(`上游 ${ledgerUsd(row.actual_usd)}`);
         if(row.charged_usd!==null&&row.charged_usd!==undefined){
           sub.push(`实扣 ${ledgerUsd(row.charged_usd)}`);
@@ -1551,12 +1670,11 @@
         const rv=ledger.reverse;
         if(rv?.text)mark('按价反推（base 成本 × 用量）',rv.text+((rv.same_price_groups||[]).some(g=>g.ambiguous)?` · 同价不可分：${rv.same_price_groups.filter(g=>g.ambiguous).map(g=>g.ids.join('/')).join('、')}`:''));
         else if(rv?.note)mark('按价反推（base 成本 × 用量）',rv.note);
-        /* v2.16.1 花费反推自检：官方逐条 base ÷ 同消息估算 token（消息 id 对齐）对全库排序。
-           Agent 会话没有服务端 token 用量，这是「用花费反推模型」的唯一起点。 */
+        /* v2.16.1 花费反推自检：Arena 逐条 base 与同 message_id 用量配对（精确 usage 优先，chars-v1 弱回退）后排序。 */
         const cr=ledger.cost_reverse;
-        if(cr?.text)mark('花费反推（官方 base ÷ 估算 token）',cr.text+((cr.same_price_groups||[]).some(g=>g.ambiguous)?` · 同价不可分：${cr.same_price_groups.filter(g=>g.ambiguous).map(g=>g.ids.join('/')).join('、')}`:''));
-        else if(cr?.note)mark('花费反推（官方 base ÷ 估算 token）',cr.note);
-        else if(cr?.error)mark('花费反推（官方 base ÷ 估算 token）','读取失败：'+cr.error);
+        if(cr?.text)mark('花费反推（官方 base × 同消息用量）',cr.text+((cr.same_price_groups||[]).some(g=>g.ambiguous)?` · 同价不可分：${cr.same_price_groups.filter(g=>g.ambiguous).map(g=>g.ids.join('/')).join('、')}`:''));
+        else if(cr?.note)mark('花费反推（官方 base × 同消息用量）',cr.note);
+        else if(cr?.error)mark('花费反推（官方 base × 同消息用量）','读取失败：'+cr.error);
         if(ledger.note)mark('账本说明',ledger.note);
       }
     }catch(error){mark('花费账本（base = Σ token × 公开单价）','探测失败：'+(error?.message||'未知原因'));}
@@ -1702,19 +1820,25 @@
     summary.renameNote+=sceneNote+textNote;
     return summary;
   }
-  async function runDraw(rounds){if(foldOn)unfoldAll();
-    if(draw.running||running)return publicStatus();
-    await ensureDebug(true);
-    guard();
+  async function runDraw(rounds){
+    if(starting||draw.running||running)return publicStatus();
     const count=Number(rounds);
     if(!Number.isInteger(count)||count<1||count>100){publishDraw('blocked','轮数必须是 1–100 的整数');return publicStatus();}
-    await savePrefs({rounds:count});
-    cancelled=false;sent=false;targetSession=null;
-    draw.running=true;draw.cancelled=false;draw.total=count;draw.round=0;draw.completed=0;draw.failed=0;draw.renamed=0;draw.blocked=0;draw.deleted=0;draw.results=[];
-    if(foldOn)unfoldAll();
+    starting='draw';cancelled=false;draw.cancelled=false;
+    const startPath=location.pathname;
+    draw.note='正在准备抽卡…';publish('checking',draw.note);
     let consecutive=0,halted=false;
-    publishDraw('checking',`准备连续抽卡：共 ${count} 轮 · ${MODE_LABEL[prefs.mode]||MODE_LABEL.quick} · 每轮先发随机数学题过人机验证${prefs.autoTopUp&&prefs.mode==='quick'?' · 判定不清自动补题':''}${prefs.blockThinking?' · 拦截 thinking':''}${prefs.renameAnyway?' · 按最接近候选改名（非确定识别）':' · 未勾选改名，只识别'}${prefs.minPulse>0?` · 额度低于 ${prefs.minPulse}% 自动停止`:''}`);
     try{
+      await ensureDebug(true);
+      guard();
+      if(location.pathname!==startPath)throw fatal('已切换页面，启动已取消');
+      await savePrefs({rounds:count});
+      guard();
+      if(location.pathname!==startPath)throw fatal('已切换页面，启动已取消');
+      starting='';sent=false;targetSession=null;
+      draw.running=true;draw.total=count;draw.round=0;draw.completed=0;draw.failed=0;draw.renamed=0;draw.blocked=0;draw.deleted=0;draw.results=[];
+      if(foldOn)unfoldAll();
+      publishDraw('checking',`准备连续抽卡：共 ${count} 轮 · ${MODE_LABEL[prefs.mode]||MODE_LABEL.quick} · 每轮先发随机数学题过人机验证${prefs.autoTopUp&&prefs.mode==='quick'?' · 判定不清自动补题':''}${prefs.blockThinking?' · 拦截 thinking':''}${prefs.renameAnyway?' · 按最接近候选改名（非确定识别）':' · 未勾选改名，只识别'}${prefs.minPulse>0?` · 额度低于 ${prefs.minPulse}% 自动停止`:''}`);
       if(prefs.minPulse>0)await refreshBalance(true);
       for(draw.round=1;draw.round<=count;draw.round++){
         if(prefs.minPulse>0){
@@ -1766,7 +1890,7 @@
       }
       if(!halted)publishDraw('done',`抽卡结束：成功识别 ${draw.completed} 轮（已改名 ${draw.renamed} 个），thinking 截断 ${draw.blocked} 轮（已清理 ${draw.deleted} 个对话），跳过 ${draw.failed} 轮；不再自动发送`);
     }catch(error){publishDraw('stopped',error?.message||'自动抽卡已停止');}
-    finally{draw.running=false;draw.cancelled=false;sent=false;targetSession=null;paint();}
+    finally{starting='';draw.running=false;draw.cancelled=false;sent=false;targetSession=null;paint();}
     return publicStatus();
   }
   function stopDraw(){if(draw.running){draw.cancelled=true;cancelled=true;publishDraw('stopping','正在停止抽卡；不会再发送新消息');}else stop();}
@@ -1974,7 +2098,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
 @media(prefers-reduced-motion:reduce){button{transition:none}}
 `;
     head.title='按住拖动可移动浮层';installDrag(head);
-    const body=el('div','body'),warning=el('p','warning','点击即发送真实消息：下拉可选价格指纹、数字指纹或组合。价格发 1 题取账单；数字可自动补题；组合在数字候选中结合价格排序。勾选改名时采用最接近候选，不代表确定识别；未勾选只识别。'),controls=el('div','controls');runOneButton=el('button','primary','快速识别 · 随机1题');runAllButton=el('button','all','精准识别 · 3题全问');runPriceButton=el('button','all','价格识别 · 1题按价');controls.style.gridTemplateColumns='1fr 1fr';controls.append(runOneButton,runAllButton);const minor=el('div','minor');appendButton=el('button','','再补 1 题');stopButton=el('button','stop','停止');clearButton=el('button','','清除结果');minor.append(appendButton,stopButton,clearButton);progressNode=el('p','progress');progressNode.setAttribute('role','status');
+    const body=el('div','body'),warning=el('p','warning','点击即发送真实消息：下拉可选价格指纹、数字指纹或组合。价格发 1 题取账单；数字可自动补题；组合在数字候选中结合价格排序。“只取最接近”只把顶部名称/最终识别定为第一名，下方候选和证据仍照常展示；默认关闭，实际改会话名仍需勾选改名。'),controls=el('div','controls');runOneButton=el('button','primary','快速识别 · 随机1题');runAllButton=el('button','all','精准识别 · 3题全问');runPriceButton=el('button','all','价格识别 · 1题按价');controls.style.gridTemplateColumns='1fr 1fr';controls.append(runOneButton,runAllButton);const minor=el('div','minor');appendButton=el('button','','再补 1 题');stopButton=el('button','stop','停止');clearButton=el('button','','清除结果');minor.append(appendButton,stopButton,clearButton);progressNode=el('p','progress');progressNode.setAttribute('role','status');
     resultNode=el('section','result');const resultTop=el('div','result-top');resultModel=el('div','model');resultBadge=el('span','badge');resultTop.append(resultModel,resultBadge);resultMetrics=el('div','metrics');resultBank=el('div','bank');resultNode.append(resultTop,resultMetrics,resultBank);
     /* 轨迹直读不再是独立卡片（用户要求不展示）：并入数字指纹面板底部一行小字。 */
     traceNode=el('div','bank');traceNode.textContent='轨迹直读：等待 public-access-token（页面自身请求的响应头）';
@@ -1986,6 +2110,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     drawBlockThinking=el('input');drawBlockThinking.type='checkbox';drawBlockThinking.style.cssText='width:auto;height:13px;padding:0;justify-self:start;margin:0';drawBlockThinking.title='开启后：一旦检测到模型开始 thinking，立即截断并进入下一轮（本轮不识别、不改名）';
     drawAutoTopUp=el('input');drawAutoTopUp.type='checkbox';drawAutoTopUp.style.cssText='width:auto;height:13px;padding:0;justify-self:start;margin:0';drawAutoTopUp.title='默认开启：快速模式下若判定不是“清晰匹配”，自动补发剩余探针（最多 3 题）加强证据；判定清晰时只问 1 题，更快';
     drawRenameAnyway=el('input');drawRenameAnyway.type='checkbox';drawRenameAnyway.style.cssText='width:auto;height:13px;padding:0;justify-self:start;margin:0';drawRenameAnyway.title='勾选后：单次识别和抽卡都按当前模式最接近的候选改名（可能不准）；不勾选仅识别，不改名';
+    drawForceBest=el('input');drawForceBest.type='checkbox';drawForceBest.style.cssText='width:auto;height:13px;padding:0;justify-self:start;margin:0';drawForceBest.title='默认关闭。勾选后：即使原证据仍有多个合法候选，也把排序第一作为顶部名称和最终识别；下方候选及证据照常保留。实际改会话名仍由“改名”控制';
     drawSceneChannel=el('input');drawSceneChannel.type='checkbox';drawSceneChannel.style.cssText='width:auto;height:13px;padding:0;justify-self:start;margin:0';drawSceneChannel.title='默认开启：每轮再多问 1 道 scene 题（6 道循环：12 字句 / 只回一个字母的单选 / 自选「动物-交通工具」），本机按模型累积答案分布，用 Jensen-Shannon 相似度投票，与数字通道交叉验证。嫌慢可以关掉'
     /* v2.18.0：「价格指纹」已上移为**识别模式**的第三项（全库按价裁决）。
        v2.17.0 那个独立勾选框（价格作数字通道的旁证）已合并进模式选择：
@@ -2056,7 +2181,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     costTableEmpty=el('div','cost-empty','还没有官方账单分项 —— 先跑一次价格指纹识别（需要 /cost 能读到四项分项费用）。');
     costTableWrap.append(costHead,costScroll,costTableEmpty);
     panelPrice.append(fpCard,fpCands,costTableWrap,byline);
-    const recognitionGrid=el('div','draw-grid');recognitionGrid.append(el('label',null,'识别模式'),drawMode,el('label',null,'改名（最接近）'),drawRenameAnyway);
+    const recognitionGrid=el('div','draw-grid');recognitionGrid.append(el('label',null,'识别模式'),drawMode,el('label',null,'改名（最接近）'),drawRenameAnyway,el('label',null,'只取最接近'),drawForceBest);
     panelRecognition.append(recognitionGrid,drawBox,warning,controls,minor,progressNode,panelPrice,panelNumeric,balanceBox);
     body.append(tabsBar,panelRecognition,panelCost);
     const compact=el('div','compact');compactText=el('div','compact-text','模型探测');const expand=el('button','expand','↗');expand.title='展开';expand.addEventListener('click',()=>{collapsed=false;paint();});const compactTools=makeTools();compact.append(mark.cloneNode(true),compactText,compactTools[0],compactTools[1],expand);
@@ -2073,6 +2198,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     drawBlockThinking.addEventListener('change',()=>void savePrefs({blockThinking:!!drawBlockThinking.checked}));
     drawAutoTopUp.addEventListener('change',()=>void savePrefs({autoTopUp:!!drawAutoTopUp.checked}));
     drawRenameAnyway.addEventListener('change',()=>void savePrefs({renameAnyway:!!drawRenameAnyway.checked}));
+    drawForceBest.addEventListener('change',()=>void savePrefs({forceBest:!!drawForceBest.checked}));
     drawSceneChannel.addEventListener('change',()=>void savePrefs({sceneChannel:!!drawSceneChannel.checked}));
     box.append(head,body,compact);root.append(style,box);document.documentElement.append(host);
     /* v2.19.4 修复：DOM 建好后必须立刻点亮当前页签。此前只有在 loadLocalState() 读到
@@ -2081,9 +2207,14 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     selectTab(activeTab,false);
     paint();
   }
-  /* v2.9.x 页面性能：把同一拍内的多次 paint() 调用合并为一次渲染，避免重复强制重排（HUD 只面向本机显示）。 */
+  /* 合并同一显示帧内的更新；后台页暂停 HUD 绘制，不影响探测状态机。 */
   let paintQueued=false;
-  function paint(){if(paintQueued)return;paintQueued=true;queueMicrotask(()=>{paintQueued=false;renderHud();});}
+  function paint(){
+    if(paintQueued||document.visibilityState==='hidden')return;
+    paintQueued=true;
+    const flush=()=>{paintQueued=false;if(document.visibilityState!=='hidden')renderHud();};
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(flush);else queueMicrotask(flush);
+  }
   function renderHud(){
     if(!agentPage()){if(host)host.hidden=true;return;}if(!host?.isConnected)createHud();host.hidden=false;
     const body=root.querySelector('.body'),head=root.querySelector('.head'),compact=root.querySelector('.compact');
@@ -2099,13 +2230,13 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     
     
     runOneButton.textContent=busy?'运行中…':'开始识别';runAllButton.textContent=busy?'运行中…':'精准识别 · 3题全问';runPriceButton.textContent=busy?'运行中…':'价格识别 · 1题按价';progressNode.textContent=state.progress||progress;
-    if(state.result){resultNode.hidden=false;resultNode.dataset.level=state.recognition?'close':state.result.status;resultModel.textContent=state.recognition?(state.recognition.label||'Arena 模型池内暂无候选'):resultLabelOf(state.result);resultBadge.textContent=state.recognition?'Arena 候选排序':badgeTextOf(state.result);resultMetrics.textContent=`拟合 ${Number(state.result.signals.fit).toFixed(3)} · 分离 ${Number(state.result.signals.separation).toFixed(3)} · 家族 ${(Number(state.result.signals.family_probability)*100).toFixed(1)}% · 有效 ${state.result.used_outputs}/${samples} · 数字 ${Number.isFinite(Number(state.result.signals.evidence_numbers))?Number(state.result.signals.evidence_numbers):'—'}${state.result.signals.pooled?'（池化）':''} · 候选集 ${decisionOf(state.result)?.set_size??1}${decisionOf(state.result)?.off_reference?' · 混合/漂移提示':''} · Top3 ${topThreeOf(state.result)||'—'}`;resultBank.textContent=`${state.result.bank_source} · ${state.result.bank_models} 个候选 · ${localSummary()}${(()=>{const note=costNoteOf(state.result);return note?' · '+note:'';})()}${pricingNoteOf(state.result)}`;compactText.textContent=`${resultBadge.textContent} · ${resultModel.textContent}`;}
+    if(state.result){resultNode.hidden=false;resultNode.dataset.level=state.recognition?'close':state.result.status;resultModel.textContent=state.recognition?(state.recognition.label||'Arena 模型池内暂无候选'):resultLabelOf(state.result);resultBadge.textContent=state.recognition?'Arena 候选排序':badgeTextOf(state.result);resultMetrics.textContent=`拟合 ${Number(state.result.signals.fit).toFixed(3)} · 分离 ${Number(state.result.signals.separation).toFixed(3)} · 家族 ${(Number(state.result.signals.family_probability)*100).toFixed(1)}% · 有效 ${state.result.used_outputs}/${samples} · 数字 ${Number.isFinite(Number(state.result.signals.evidence_numbers))?Number(state.result.signals.evidence_numbers):'—'}${state.result.signals.pooled?'（池化）':''} · 候选集 ${decisionOf(state.result)?.set_size??1}${decisionOf(state.result)?.off_reference?' · 混合/漂移提示':''} · Top3 ${topThreeOf(state.result)||'—'}`;const source=String(state.result.bank_source||'');const coverage=source.includes('ModelTrace d4131b3')?' · 离线库仅 GPT/Claude，不含 Gemini':source.includes('WhatsMyLLM v2026.09.5')?' · 指纹库只含 Gemini 3.8 Flash 参考，其他 Gemini 版本未覆盖':'';resultBank.textContent=`${source} · ${state.result.bank_models} 个候选${coverage} · ${localSummary()}${(()=>{const note=costNoteOf(state.result);return note?' · '+note:'';})()}${pricingNoteOf(state.result)}`;compactText.textContent=`${resultBadge.textContent} · ${resultModel.textContent}`;}
     else{resultNode.hidden=true;compactText.textContent=state.draw.running?`抽卡 ${state.draw.round}/${state.draw.total}`:samples?`已捕获 ${samples}/3 条`:'模型探测';}
-    if((state.prefs.mode==='price'||state.prefs.mode==='combined')&&state.price_fingerprint?.suggestion)compactText.textContent=`${state.price_fingerprint.suggestion.kind==='rate-family'?'同价代表':state.price_fingerprint.suggestion.kind==='hard-hint'?'费率旁证':'最接近'} · ${state.price_fingerprint.suggestion.label}`;
+    if((state.prefs.mode==='price'||state.prefs.mode==='combined')&&state.price_fingerprint?.suggestion){const fp=state.price_fingerprint,suggestion=fp.suggestion;if(fp.forced_best===true)compactText.textContent=`用户强制单选 · ${suggestion.label}`;else if(state.prefs.mode==='combined')compactText.textContent=`组合候选（启发式，非确定） · ${suggestion.label}`;else if(fp.separable===true)compactText.textContent=`价格唯一 · ${suggestion.label}`;else{const count=Number(fp.price_window_matches)||fp.price_window_hits?.length||fp.rate_family?.models?.length||fp.hard_filter?.candidates?.length||0;compactText.textContent=count?`价格未定 · ${count} 个候选`:'价格未定 · 候选见详情';}}
     const focused=root.activeElement;
     if(focused!==drawInput)drawInput.value=String(state.prefs.rounds);
     if(focused!==drawMode)drawMode.value=String(state.prefs.mode||'price');
-    drawMode.disabled=busy||state.draw.running;drawRenameAnyway.disabled=busy||state.draw.running;
+    drawMode.disabled=busy||state.draw.running;drawRenameAnyway.disabled=busy||state.draw.running;drawForceBest.disabled=busy||state.draw.running;
     panelNumeric.hidden=state.prefs.mode==='price';panelPrice.hidden=state.prefs.mode==='quick'||state.prefs.mode==='precise';
     runAllButton.hidden=state.prefs.mode!=='quick'&&state.prefs.mode!=='precise';runPriceButton.hidden=true;
     appendButton.hidden=state.prefs.mode==='price';
@@ -2113,6 +2244,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     if(focused!==drawBlockThinking)drawBlockThinking.checked=!!state.prefs.blockThinking;
     if(focused!==drawAutoTopUp)drawAutoTopUp.checked=state.prefs.autoTopUp!==false;
     if(focused!==drawRenameAnyway)drawRenameAnyway.checked=state.prefs.renameAnyway===true;
+    if(focused!==drawForceBest)drawForceBest.checked=state.prefs.forceBest===true;
     if(focused!==drawSceneChannel)drawSceneChannel.checked=state.prefs.sceneChannel!==false;
     drawStartButton.disabled=busy;drawStopButton.disabled=!state.draw.running;
     drawProgressNode.textContent=state.draw.note||'设定轮数后点击「开始抽卡」：每轮自动新建聊天、发送探针、识别模型；勾选改名时按最接近候选改名。';
@@ -2139,8 +2271,9 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
   }
 
   chrome.runtime.onMessage.addListener((message,_sender,reply)=>{
+    if(message?.type==='AMP_RECAPTCHA_ANCHOR_VISIBLE'){reply({visible:_sender?.id===chrome.runtime.id&&document.visibilityState==='visible'&&document.hasFocus()&&/^https:\/\/(?:canary\.)?arena\.ai(?:\/|$)/.test(location.href)&&typeof message.anchorUrl==='string'&&visibleRecaptchaChallenge(message.anchorUrl,'anchor')});return;}
     if(message?.type==='AMP_BUSTER_VISIBLE'){reply({visible:_sender?.id===chrome.runtime.id&&document.visibilityState==='visible'&&document.hasFocus()&&/^https:\/\/(?:canary\.)?arena\.ai(?:\/|$)/.test(location.href)&&typeof message.challengeUrl==='string'&&visibleRecaptchaChallenge(message.challengeUrl)});return;}
-    if(message?.type==='AMP_STATUS'){if(!ledgerState.data&&!ledgerState.loading)void refreshLedger();reply(publicStatus());return;}
+    if(message?.type==='AMP_STATUS'){syncHudSession();if(document.visibilityState!=='hidden'&&!ledgerState.data&&!ledgerState.loading&&Date.now()-ledgerState.at>30000)void refreshLedger();reply(publicStatus());return;}
     if(message?.type==='AMP_LEDGER_REFRESH'){void refreshLedger().then(()=>reply(publicStatus()));return true;}
     if(message?.type==='AMP_RUN_SELECTED'){draw.note='';void run(prefs.mode);reply(publicStatus());return;}
     if(message?.type==='AMP_RUN_QUICK'||message?.type==='AMP_RUN_ONE'){draw.note='';void run('quick');reply(publicStatus());return;}
@@ -2170,6 +2303,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
   window.addEventListener('pagehide',()=>{cancelled=true;});
   const onSessionNavigation=()=>{syncHudSession();paint();};
   window.addEventListener('popstate',onSessionNavigation);window.navigation?.addEventListener('navigatesuccess',onSessionNavigation);
+  document.addEventListener('visibilitychange',paint);
   new MutationObserver(mutations=>{
     if(host&&!host.isConnected)createHud();
     if(foldOn&&mutations.some(change=>!foldRoot||foldRoot.contains(change.target)||change.target.contains?.(foldRoot)))scheduleFold();

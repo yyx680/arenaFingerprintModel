@@ -18,8 +18,8 @@
    没有真实成本时本模块依然给出 base（标 `source:'pricing-table'`）；
    有真实成本时用真实值并标 `source:'cost-route'`，两者可逐条对照。 */
 
-import {parseUsage, totalOf, describeUsage, estimateUsageFromStats, estimateTokensFromChars, transcriptStats, ESTIMATE_METHOD} from './usage-channel.js';
-import {bankPricing, expectedCostUsd} from './pricing-channel.js';
+import {parseUsage, totalOf, describeUsage, estimateUsageFromStats, estimateTokensFromChars, transcriptStats, ESTIMATE_METHOD, USAGE_SCHEMA} from './usage-channel.js';
+import {bankPricing, expectedCostUsd, hasNonTokenMediaCost} from './pricing-channel.js';
 
 export const LEDGER_SCHEMA = 'arena-cost-ledger';
 
@@ -223,51 +223,84 @@ const estimateModelOption = (options) => (typeof options?.model === 'string' && 
 /** 从 `GET /api/chat/<sid>` 的响应体直接建估算行。
  *  `options.model` 可选：会话已知模型时（例如 pinnedModel）用它折 base；不知道就只报 token。 */
 
-/* ---------- 3.5 花费反推的原料：官方逐条 base × 同消息估算 token ---------- */
+/* ---------- 3.5 花费反推原料：显式 Arena base × 同消息用量 ---------- */
 
-/** 按**消息 id** 把 /cost 官方逐条 base 与转录估算 token 配成对（v2.16.1）。
- *  实测确认（dev-scratch/_cdp-id-align.mjs）：会话包 assistant 消息 id 与 /cost messages
- *  的 key 是同一套 UUID，5/5 完全对齐 —— 否则反推的地基不成立。
- *  返回 {pairs, total_base_usd, total_tokens, usage, cost_only, estimate_only, n_pairs}。
- *  纯函数：任何一侧缺失或对不上都如实报告，绝不凑数（usage_source 标估算口径）。 */
-export function pairCostWithEstimates(costMessages, estimates) {
+/** 只读取明确的 Arena base 字段；totalCostUsd / actualTotalUsd 是上游成本，不能代替 base。 */
+function explicitBaseUsd(entry) {
+  for (const value of [entry?.basePriceUsd, entry?.base_usd, entry?.actual?.basePriceUsd]) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) return number;
+  }
+  return null;
+}
+
+/** 按 message_id 配对官方逐条 base 与同消息 usage。
+ *  只要有一条精确 usage 配上，就只用该精确子集，不把 chars-v1 混进来；
+ *  只有完全没有精确配对时才回退到转录估算。 */
+export function pairCostWithUsage(costMessages, messageUsage, estimates) {
+  const exactById = new Map();
+  for (const entry of Array.isArray(messageUsage) ? messageUsage : []) {
+    if (!entry || typeof entry !== 'object' || !entry.message_id) continue;
+    const raw = entry.usage;
+    const usage = raw?.schema === USAGE_SCHEMA ? raw : parseUsage(raw);
+    const tokens = Number(usage?.totalTokens) || totalOf(usage);
+    if (usage && tokens > 0) exactById.set(String(entry.message_id), {...usage, totalTokens: tokens});
+  }
+
   const estimateById = new Map();
   for (const entry of Array.isArray(estimates) ? estimates : []) {
     if (!entry || typeof entry !== 'object' || !entry.message_id) continue;
     const built = estimateUsageFromStats(entry.chars);
     if (built) estimateById.set(String(entry.message_id), built.usage);
   }
+
   const costMap = costMessages && typeof costMessages === 'object' ? costMessages : {};
+  const entries = Object.entries(costMap);
+  const nonTokenMediaCost = [];
+  const exactUsage = entries.some(([id, entry]) => !hasNonTokenMediaCost(entry) && explicitBaseUsd(entry) > 0 && exactById.has(String(id)));
+  const usageById = exactUsage ? exactById : estimateById;
+  const usageSource = exactUsage ? 'message-usage' : ESTIMATE_METHOD;
   const pairs = [];
   const costOnly = [];
-  const pairedIds = new Set();
-  for (const [messageId, entry] of Object.entries(costMap)) {
+  for (const [messageId, entry] of entries) {
     const id = String(messageId);
-    const base = Number(entry?.basePriceUsd ?? entry?.actual?.basePriceUsd);
-    const usage = estimateById.get(id) || null;
-    if (!(Number.isFinite(base) && base > 0)) continue;
-    if (!usage || !(Number(usage.totalTokens) > 0)) { costOnly.push(id); continue; }
-    pairs.push({message_id: id, base_usd: base, tokens: Number(usage.totalTokens), usage});
-    pairedIds.add(id);
+    if (hasNonTokenMediaCost(entry)) { nonTokenMediaCost.push(id); continue; }
+    const base = explicitBaseUsd(entry);
+    if (!(base > 0)) continue;
+    const usage = usageById.get(id) || null;
+    const tokens = Number(usage?.totalTokens) || totalOf(usage);
+    if (!usage || !(tokens > 0)) { costOnly.push(id); continue; }
+    pairs.push({message_id: id, base_usd: base, tokens, usage});
   }
-  const estimateOnly = [...estimateById.keys()].filter(id => !pairedIds.has(id));
+  const estimateOnly = [...estimateById.keys()].filter(id => !hasNonTokenMediaCost(costMap[id]) && !(explicitBaseUsd(costMap[id]) > 0));
   const totalBase = pairs.reduce((sum, row) => sum + row.base_usd, 0);
   const totalTokens = pairs.reduce((sum, row) => sum + row.tokens, 0);
-  /* 汇总用量：只带 token 数字（估算口径），供 rankByObservedCost 折算期望成本。 */
+  const sumField = field => pairs.reduce((sum, row) => sum + (Number(row.usage?.[field]) || 0), 0);
   const usage = pairs.length
     ? {
-        type: 'language_model',
-        usage_source: ESTIMATE_METHOD,
-        outputTokens: pairs.reduce((sum, row) => sum + (Number(row.usage.outputTokens) || 0), 0),
-        reasoningTokens: pairs.reduce((sum, row) => sum + (Number(row.usage.reasoningTokens) || 0), 0),
-        totalTokens: pairs.reduce((sum, row) => sum + (Number(row.usage.totalTokens) || 0), 0),
+        schema: USAGE_SCHEMA,
+        type: pairs.find(row => row.usage?.type)?.usage.type || 'language_model',
+        usage_source: usageSource,
+        inputTokens: sumField('inputTokens'),
+        outputTokens: sumField('outputTokens'),
+        cacheReadTokens: sumField('cacheReadTokens'),
+        cacheWriteTokens: sumField('cacheWriteTokens'),
+        reasoningTokens: sumField('reasoningTokens'),
+        totalTokens,
       }
     : null;
   return {
     pairs, cost_only: costOnly, estimate_only: estimateOnly,
+    non_token_media_cost: nonTokenMediaCost, n_non_token_media_cost: nonTokenMediaCost.length,
     total_base_usd: Number(totalBase.toFixed(9)), total_tokens: totalTokens,
-    usage, n_pairs: pairs.length,
+    usage, n_pairs: pairs.length, exact_usage: exactUsage && pairs.length > 0,
+    usage_source: pairs.length ? usageSource : null,
   };
+}
+
+/** Backwards-compatible estimate-only wrapper for callers/tests without exact usage. */
+export function pairCostWithEstimates(costMessages, estimates) {
+  return pairCostWithUsage(costMessages, [], estimates);
 }
 export function ledgerRowsFromTranscript(payload, table, options = {}) {
   const stats = transcriptStats(payload);

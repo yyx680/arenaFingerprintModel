@@ -28,6 +28,14 @@ export const CONSISTENT_RATIO = 1.6;
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
 const nonNeg = (v) => finite(v) && v >= 0;
 
+/** 只在证据完全并列时用于稳定排序；不能拿来源优先级替代价格证据定名。 */
+export function pricingSourcePriority(source) {
+  if (source === 'arena-battle-observed') return 0;
+  if (source === 'arena-official') return 1;
+  if (source === 'openrouter-public') return 2;
+  return 3;
+}
+
 export function validatePricingTable(table) {
   if (!table || typeof table !== 'object' || Array.isArray(table)) throw new Error('单价表格式无效');
   if (table.schema !== PRICING_SCHEMA) throw new Error('单价表 schema 无效');
@@ -64,9 +72,12 @@ export function applyCacheRates(table, ratesDoc) {
     const hasRead = nonNeg(read);
     const hasWrite = nonNeg(write);
     if (!hasRead && !hasWrite) continue;
-    // 官方已有值就不覆盖（官方优先）
-    if (profile.cache_read_usd_per_mtok === null && hasRead) profile.cache_read_usd_per_mtok = Number(read);
-    if (profile.cache_write_usd_per_mtok === null && hasWrite) profile.cache_write_usd_per_mtok = Number(write);
+    // 只有实际补入字段才标记第三方来源；不能把已有官方费率误标为 OpenRouter。
+    const fillRead = profile.cache_read_usd_per_mtok === null && hasRead;
+    const fillWrite = profile.cache_write_usd_per_mtok === null && hasWrite;
+    if (!fillRead && !fillWrite) continue;
+    if (fillRead) profile.cache_read_usd_per_mtok = Number(read);
+    if (fillWrite) profile.cache_write_usd_per_mtok = Number(write);
     profile.cache_rate_source = 'openrouter-public';
     profile.cache_rate_or_id = typeof entry?.or_id === 'string' ? entry.or_id : null;
     profile.cache_rate_batch = entry?.batch === true;          // 来自 :batch 半价条目 → 需标注
@@ -131,6 +142,77 @@ export function mergeOpenRouterPrices(doc, pricesDoc) {
   };
 }
 
+/** 把已揭示 Battle 训练集提炼出的稳定实测费率合并进原始价目文档。
+ *
+ *  输入必须是脱敏后的 `arena-battle-price-rates-v1`，而不是带 prompt/response 的训练集本体。
+ *  优先级严格为 Battle 同消息实测价 > Arena 官方参考价 > 其他公开补充价。命中同 key 时用
+ *  实测费率作为主值，同时把原官方费率保存在 `arena_official_reference` 供披露/辅助，不丢数据。
+ *  生成器已要求 input/output 正费率在该模型全部样本中一致；这里再做边界校验。 */
+export function mergeBattleObservedPrices(doc, ratesDoc) {
+  if (!doc || !ratesDoc || ratesDoc.schema !== 'arena-battle-price-rates-v1') return doc;
+  const rows = Array.isArray(ratesDoc.rows) ? ratesDoc.rows : [];
+  if (!rows.length) return doc;
+  const base = Array.isArray(doc.rows) ? doc.rows : [];
+  const num = (value) => (value === null || value === undefined || value === ''
+    ? null : (Number.isFinite(Number(value)) ? Number(value) : null));
+  const optionalPositive = (value) => { const parsed = num(value); return parsed > 0 ? parsed : null; };
+  const observed = new Map();
+  for (const row of rows) {
+    const key = row && typeof row.model_key === 'string' ? row.model_key.trim() : '';
+    if (!key || key.length > 160 || observed.has(key)) continue;
+    const input = num(row.input_usd_per_mtok);
+    const output = num(row.output_usd_per_mtok);
+    if (!(input > 0 && output > 0)) continue;
+    if (row.confidence && row.confidence !== 'unanimous-positive-rates') continue;
+    observed.set(key, {
+      model_key: key,
+      display: typeof row.display === 'string' && row.display ? row.display : key,
+      org: typeof row.org === 'string' && row.org ? row.org : null,
+      input_usd_per_mtok: input,
+      output_usd_per_mtok: output,
+      cache_read_usd_per_mtok: optionalPositive(row.cache_read_usd_per_mtok),
+      cache_write_usd_per_mtok: optionalPositive(row.cache_write_usd_per_mtok),
+      source: 'arena-battle-observed',
+      observed_samples: row.observed_samples && typeof row.observed_samples === 'object'
+        ? {...row.observed_samples} : null,
+    });
+  }
+  if (!observed.size) return doc;
+  let overridden = 0;
+  const mergedRows = base.map(row => {
+    const hit = observed.get(row?.model_key);
+    if (!hit) return row;
+    observed.delete(row.model_key);
+    overridden += 1;
+    return {
+      ...row,
+      ...hit,
+      display: row.display || hit.display,
+      org: row.org || hit.org,
+      arena_official_reference: {
+        input_usd_per_mtok: num(row.input_usd_per_mtok),
+        output_usd_per_mtok: num(row.output_usd_per_mtok),
+        cache_read_usd_per_mtok: num(row.cache_read_usd_per_mtok),
+        cache_write_usd_per_mtok: num(row.cache_write_usd_per_mtok),
+      },
+    };
+  });
+  const extra = [...observed.values()];
+  return {
+    ...doc,
+    rows: [...mergedRows, ...extra],
+    battle_observed_supplement: {
+      applied: overridden + extra.length,
+      added: extra.length,
+      overridden,
+      source: typeof ratesDoc.source === 'string' ? ratesDoc.source : null,
+      generated_at: typeof ratesDoc.generated_at === 'string' ? ratesDoc.generated_at : null,
+      training_generated_at: typeof ratesDoc.training_generated_at === 'string' ? ratesDoc.training_generated_at : null,
+      policy: typeof ratesDoc.policy === 'string' ? ratesDoc.policy : null,
+    },
+  };
+}
+
 /** 归并成按 model_key 索引的单价档案。
  *
  *  每行按计价方式分两类：
@@ -142,8 +224,8 @@ export function normalizePricingTable(table) {
   validatePricingTable(table);
   const byKey = new Map();
   for (const row of table.rows) {
-    const input = nonNeg(row.input_usd_per_mtok) ? Number(row.input_usd_per_mtok) : 0;
-    const output = nonNeg(row.output_usd_per_mtok) ? Number(row.output_usd_per_mtok) : 0;
+    const input = nonNeg(row.input_usd_per_mtok) ? Number(row.input_usd_per_mtok) : null;
+    const output = nonNeg(row.output_usd_per_mtok) ? Number(row.output_usd_per_mtok) : null;
     const record = {
       model_key: String(row.model_key),
       display: row.display ? String(row.display) : String(row.model_key),
@@ -200,7 +282,7 @@ export function normalizePricingTable(table) {
 /** 单价表的展示文本：`$4/$20 每 Mtok`；非 token 计价模型标注出来。 */
 export function describePrice(profile) {
   if (!profile) return '—';
-  const fmt = (v) => (Number.isFinite(Number(v)) ? `$${Number(Number(v).toFixed(4))}` : '—');
+  const fmt = (v) => (nonNeg(v) ? `$${Number(v.toFixed(4))}` : '—');
   const text = `${fmt(profile.input_usd_per_mtok)}/${fmt(profile.output_usd_per_mtok)} 每 Mtok`;
   return profile.kind === 'media' ? `${text}（按张/秒计，不可按 token 反推）` : text;
 }
@@ -284,8 +366,29 @@ export function rankByObservedCost(observedUsd, usage, candidates, table, limit 
       // 比值取对数后的高斯核；缓存单价缺失时降权（期望值只是下界）。
       const z = Math.log(match.ratio) / Math.log(CONSISTENT_RATIO);
       const weight = Math.exp(-0.5 * z * z) * (match.complete ? 1 : 0.6);
-      if (!best || weight > best.weight) {
-        best = {model_key: key, matched_key: profile.model_key, label: profile.display, expected_usd: match.expected_usd, ratio: match.ratio, complete: match.complete, variants: profiles.length, weight};
+      if (!best || weight > best.weight
+        || (weight === best.weight && pricingSourcePriority(profile.price_source) < pricingSourcePriority(best.price_source))) {
+        best = {
+          model_key: key,
+          matched_key: profile.model_key,
+          label: profile.display,
+          price_source: profile.price_source || null,
+          observed_samples: profile.battle_observed_samples || null,
+          official_reference_rates: profile.official_reference_rates || null,
+          expected_usd: match.expected_usd,
+          ratio: match.ratio,
+          complete: match.complete,
+          variants: profiles.length,
+          weight,
+          rates: {
+            input_usd_per_mtok: profile.input_usd_per_mtok,
+            output_usd_per_mtok: profile.output_usd_per_mtok,
+            cache_read_usd_per_mtok: profile.cache_read_usd_per_mtok,
+            cache_write_usd_per_mtok: profile.cache_write_usd_per_mtok,
+            cache_rate_source: profile.cache_rate_source || null,
+            cache_rate_batch: profile.cache_rate_batch === true,
+          },
+        };
       }
     }
     if (best) scored.push(best);
@@ -293,7 +396,10 @@ export function rankByObservedCost(observedUsd, usage, candidates, table, limit 
   if (!scored.length) return null;
   const total = scored.reduce((sum, item) => sum + item.weight, 0);
   for (const item of scored) item.weight = total > 0 ? Number((item.weight / total).toFixed(4)) : 0;
-  scored.sort((a, b) => b.weight - a.weight || Math.abs(Math.log(a.ratio)) - Math.abs(Math.log(b.ratio)));
+  scored.sort((a, b) => b.weight - a.weight
+    || Math.abs(Math.log(a.ratio)) - Math.abs(Math.log(b.ratio))
+    || pricingSourcePriority(a.price_source) - pricingSourcePriority(b.price_source)
+    || String(a.model_key).localeCompare(String(b.model_key)));
   return scored.slice(0, Math.max(1, limit));
 }
 
@@ -447,10 +553,34 @@ export function bankPricing(baseId, table) {
    这说明整除是**真实约束**而非数字巧合，但也说明**筛选极度脆弱** ——
    费用数值稍有偏差就全灭。所以硬筛选出唯一解可以定名，出多解/零解一律降级。 */
 
+/* /cost may expose modality-specific charges, but USAGE_SCHEMA has no matching
+   image/video/audio count. Such a row must not be compared with text-token rates. */
+const NON_TOKEN_MEDIA_COST_KEYS = new Set([
+  'priceperimage',
+  'imageinputtokenscostusd', 'imageoutputtokenscostusd', 'imagegenerationcostusd',
+  'videoinputtokenscostusd', 'videooutputtokenscostusd', 'videogenerationcostusd',
+  'audioinputtokenscostusd', 'audiooutputtokenscostusd', 'audiogenerationcostusd',
+]);
+
+export function hasNonTokenMediaCost(payload) {
+  if (!payload || typeof payload !== 'object') return false;
+  for (const source of [payload.actual, payload]) {
+    if (!source || typeof source !== 'object') continue;
+    if (source.non_token_media_cost === true || source.has_non_token_media_cost === true) return true;
+    for (const [field, value] of Object.entries(source)) {
+      const key = String(field).toLowerCase().replace(/[^a-z0-9]/g, '');
+      const amount = Number(value);
+      if (NON_TOKEN_MEDIA_COST_KEYS.has(key) && Number.isFinite(amount) && amount > 0) return true;
+    }
+  }
+  return false;
+}
+
 /** 分项费用形状：四项都是「美元」金额（非 token 数）。 */
 export function normalizeCostBreakdown(payload) {
   if (!payload || typeof payload !== 'object') return null;
   const actual = payload.actual && typeof payload.actual === 'object' ? payload.actual : payload;
+  const nonTokenMediaCost = hasNonTokenMediaCost(payload);
   const pick = (key) => {
     const v = actual[key];
     return finite(v) && v >= 0 ? Number(v) : null;
@@ -463,7 +593,7 @@ export function normalizeCostBreakdown(payload) {
   const base = finite(payload.basePriceUsd) && payload.basePriceUsd >= 0 ? Number(payload.basePriceUsd) : null;
   const strategy = typeof payload.pricingStrategy === 'string' ? payload.pricingStrategy : null;
   const fallback = actual.isFallback === true;
-  if ([input, output, cacheWrite, cacheRead].every((v) => v === null)) return null;
+  if ([input, output, cacheWrite, cacheRead].every((v) => v === null) && !nonTokenMediaCost) return null;
   /* 分项之和必须与总额自洽（容差同参考扩展：max(1e-9, total×1e-6)）。不自洽 = 这份账单不可信。 */
   const sum = [input, output, cacheWrite, cacheRead].reduce((s, v) => s + (v || 0), 0);
   const totalConsistent = total === null ? null : Math.abs(sum - total) <= Math.max(1e-9, total * 1e-6);
@@ -478,6 +608,7 @@ export function normalizeCostBreakdown(payload) {
     is_fallback: fallback,
     total_consistent: totalConsistent,
     any_cache: (cacheWrite || 0) > 0 || (cacheRead || 0) > 0,
+    has_non_token_media_cost: nonTokenMediaCost,
   };
 }
 
@@ -547,6 +678,10 @@ export function baseModelName(modelKey) {
 export function hardFilterByCosts(breakdown, table, options = {}) {
   if (!breakdown) return {state: 'missing-cost', candidates: [], partial: [], note: '账单没有可用的分项费用。'};
   if (breakdown.is_fallback === true) return {state: 'missing-cost', candidates: [], partial: [], note: '该条是估算费用（isFallback），不参与整数反推。'};
+  if (breakdown.has_non_token_media_cost === true) return {
+    state: 'non-token-media-cost', candidates: [], partial: [], excluded_media: 0,
+    note: '账单含图像/视频/音频专属费用，但用量没有对应模态计数；不能按纯 token 费率反推。',
+  };
   if (breakdown.total_consistent === false) return {state: 'off-integer-grid', candidates: [], partial: [], note: '四项分项之和与总额不自洽 —— 这份账单不可信，不做反推。'};
   if (!table || typeof table.all !== 'function') return {state: 'missing-cost', candidates: [], partial: [], note: '单价表不可用。'};
 
@@ -578,8 +713,15 @@ export function hardFilterByCosts(breakdown, table, options = {}) {
       },
       cache_rate_source: profile.cache_rate_source || null,
       cache_rate_batch: profile.cache_rate_batch === true,
+      price_source: profile.price_source || null,
+      observed_samples: profile.battle_observed_samples || null,
+      official_reference_rates: profile.official_reference_rates || null,
     });
   }
+
+  /* 表顺序不能决定并列代表：完全同价/同分时严格按 Battle > 官方 > OpenRouter。
+     这只改变展示和同基础名去重时保留哪一行，不改变整除结果或唯一性判据。 */
+  candidates.sort((a, b) => pricingSourcePriority(a.price_source) - pricingSourcePriority(b.price_source));
 
   /* 同一模型的多个变体 key 会重复计数 —— 例如 `qwen3.7-plus`（text 档）与
      `qwen3.7-plus-agent`（agent 档）单价与反推结果完全相同，若不去重会把「1 个候选」

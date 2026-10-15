@@ -303,6 +303,38 @@ test('未唯一定名：候选列表展示硬筛选候选 + 软判据 top + 同�
   assert.match(flat, /13 个变体缺计价字段/, '报 partial 数量');
 });
 
+test('价格候选列表显示每百万单价与期望/观察账单金额', () => {
+  const api = ctx.__ampTest;
+  const gemini = {
+    model_key: 'skimaki-kwc6-agent', label: 'Gemini 3.8 Flash (High)', ratio: 1,
+    expected_usd: 0.0045, complete: true,
+    rates: {input_usd_per_mtok: 0.75, output_usd_per_mtok: 3.75},
+  };
+  const gpt = {
+    model_key: 'gpt-6.1-sol-max-agent', label: 'GPT 6.1 Sol (Max)', ratio: 0.375,
+    expected_usd: 0.012, complete: true,
+    rates: {
+      input_usd_per_mtok: 2, output_usd_per_mtok: 10,
+      cache_read_usd_per_mtok: 0.2, cache_write_usd_per_mtok: 2.5,
+      cache_rate_source: 'openrouter-public', cache_rate_batch: true,
+    },
+  };
+  api.renderPriceCandidates({
+    separable: false, observed_usd: 0.0045,
+    price_window_matches: 1, price_ranked_models: 2,
+    price_window_hits: [gemini], hit: gemini, runner_up: gpt,
+  }, false);
+  const flat = api.fpCandsList.children.map(row => row.children.map(child => child.textContent).join(' | ')).join('\n');
+  assert.match(flat, /Gemini 3\.8 Flash \(High\)/);
+  assert.match(flat, /输入 \$0\.75 \/ 输出 \$3\.75/);
+  assert.match(flat, /期望 \$0\.0045 \/ 账单 \$0\.0045/);
+  assert.match(flat, /GPT 6\.1 Sol \(Max\)/);
+  assert.match(flat, /输入 \$2 \/ 输出 \$10/);
+  assert.match(flat, /缓存读\/写 \$0\.2 \/ \$2\.5（OpenRouter 公开）/);
+  assert.match(flat, /batch 半价/);
+  assert.match(flat, /期望 \$0\.012 \/ 账单 \$0\.0045/);
+});
+
 test('唯一定名：候选列表收起（不干扰结论）', () => {
   const api = ctx.__ampTest;
   api.renderPriceCandidates({separable: true, hit: {model_key: 'x'}, hard_filter: {candidates: [{model_key: 'x', display: 'X', counts: {}}]}}, true);

@@ -289,18 +289,16 @@ export function chargedFromBase(baseUsd, multiplier) {
   return Number((baseUsd * m).toFixed(8));
 }
 
-/** v2.13.1：把 `/cost` 路由的 `session` 聚合对象转成与 `observedCostDetail` **同形**的结构，
- *  这样浮层/自检不必区分「正则抓到的字段」和「结构化路由拿到的聚合」两条来源。
- *  注意 `actualTotalUsd` 与 `basePriceUsd` 都归到 base 口径（实测二者同量级），
- *  `chargedTotalUsd` 才是加价后的实扣。
- *  v2.16.0：实测 200 响应里 base / 实扣积分挂在 `session.aggregate` 子对象下
- *  （顶层只有 actualTotalUsd / chargedTotalUsd / messageCount），这里补一层回退。 */
+/** 把 `/cost` 路由的 `session` 聚合对象转成与 `observedCostDetail` **同形**的结构。
+ *  `actualTotalUsd` 是上游 actual 成本，不可代替 `basePriceUsd` 与公开模型单价比较；
+ *  base 只从明确的 base 字段读取。真实 200 响应把 aggregate.basePriceUsd 等字段
+ *  挂在 `session.aggregate` 子对象下（顶层可能只有 actual/charged/messageCount）。 */
 export function costDetailFromSession(session) {
   if (!session || typeof session !== 'object') return null;
   const num = (value) => (positive(Number(value)) ? Number(value) : null);
   const aggregate = session.aggregate && typeof session.aggregate === 'object' ? session.aggregate : null;
   const detail = {
-    base_usd: num(session.basePriceUsd) ?? (aggregate ? num(aggregate.basePriceUsd) : null) ?? num(session.actualTotalUsd),
+    base_usd: num(session.basePriceUsd) ?? (aggregate ? num(aggregate.basePriceUsd) : null),
     total_cost_usd: num(session.actualTotalUsd),
     actual_usd: num(session.actualTotalUsd),
     charged_usd: num(session.chargedTotalUsd) ?? (aggregate ? num(aggregate.totalChargedUsd) : null),

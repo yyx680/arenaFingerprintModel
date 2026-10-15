@@ -22,7 +22,15 @@ const est = (message_id, text = 1500, reasoning = 500) => ({
   },
 });
 
-function makeBgApi(probeBank = null, {cacheRates = null, pricing = null, openRouter = null} = {}) {
+const exact = (message_id, outputTokens, inputTokens = 0) => ({
+  message_id,
+  usage: {
+    type: 'language_model', usageSource: 'provider', inputTokens, outputTokens,
+    totalTokens: inputTokens + outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0,
+  },
+});
+
+function makeBgApi(probeBank = null, {cacheRates = null, pricing = null, openRouter = null, battleRates = null} = {}) {
   const pricingDoc = Object.assign(JSON.parse(read('arena-pricing-table.json')), {fetched_at: new Date().toISOString()});
   if (pricing) Object.assign(pricingDoc, pricing);
   const stored = {'amp.pricing.live.v1': pricingDoc};
@@ -31,12 +39,17 @@ function makeBgApi(probeBank = null, {cacheRates = null, pricing = null, openRou
      默认返回 {ok:false}（=读不到，价格通道退回纯软判据）。要测合并效果就显式喂一份。 */
   const ratesDoc = cacheRates === 'real' ? JSON.parse(read('arena-cache-rates.json'))
     : cacheRates && typeof cacheRates === 'object' ? cacheRates : null;
+  const battleDoc = battleRates === 'real' ? JSON.parse(read('arena-battle-price-rates.json'))
+    : battleRates && typeof battleRates === 'object' ? battleRates : null;
   /* v2.19.6：OpenRouter 公开价目补充表（模型本体）同理。 */
   const orDoc = openRouter === 'real' ? JSON.parse(read('openrouter-prices.json'))
     : openRouter && typeof openRouter === 'object' ? openRouter : null;
   const fetchImpl = async (url) => {
     if (ratesDoc && String(url).includes('arena-cache-rates.json')) {
       return {ok: true, status: 200, json: async () => ratesDoc, text: async () => JSON.stringify(ratesDoc)};
+    }
+    if (battleDoc && String(url).includes('arena-battle-price-rates.json')) {
+      return {ok: true, status: 200, json: async () => battleDoc, text: async () => JSON.stringify(battleDoc)};
     }
     if (orDoc && String(url).includes('openrouter-prices.json')) {
       return {ok: true, status: 200, json: async () => orDoc, text: async () => JSON.stringify(orDoc)};
@@ -71,11 +84,11 @@ function makeBgApi(probeBank = null, {cacheRates = null, pricing = null, openRou
   return ctx.api;
 }
 
-function resetBg(bg, {official = null, estimates = [], gate = null} = {}) {
+function resetBg(bg, {official = null, estimates = [], messageUsage = [], gate = null} = {}) {
   bg.netState.officialCost = official;
   bg.netState.costRouteSignals = [];
   bg.netState.costSignals = [];
-  bg.netState.messageUsage = [];
+  bg.netState.messageUsage = messageUsage;
   bg.netState.transcriptEstimates = estimates;
   bg.netState.costGate = gate;
   bg.netState.identifiedModel = null;
@@ -83,10 +96,11 @@ function resetBg(bg, {official = null, estimates = [], gate = null} = {}) {
 
 test('价格指纹：候选内唯一贴合 → separable，可单独定名', async () => {
   const bg = makeBgApi();
-  /* 4000t 估算 × $6/Mtok(grok-4.5-agent 出价) = $0.024。另两个候选出价 $10、$0.5 都远。 */
+  /* 4000 个精确 token × $6/Mtok(grok-4.5-agent 出价) = $0.024。估算故意冲突，必须优先用 exact usage。 */
   resetBg(bg, {
     official: {session: null, messages: {m1: {basePriceUsd: 0.012}, m2: {basePriceUsd: 0.012}}},
-    estimates: [est('m1'), est('m2')],
+    estimates: [est('m1', 1, 0), est('m2', 50000, 0)],
+    messageUsage: [exact('m1', 2000), exact('m2', 2000)],
   });
   const fp = await bg.priceFingerprintBlock(['grok-4.5-agent', 'claude-sonnet-5-agent', 'gpt-6-luna-max-agent']);
   assert.equal(fp.separable, true);
@@ -95,11 +109,30 @@ test('价格指纹：候选内唯一贴合 → separable，可单独定名', asy
   assert.equal(fp.hit.ratio, 1);
   assert.equal(fp.candidates, 3);
   assert.equal(fp.n_pairs, 2);
-  assert.equal(fp.estimated_tokens, 4000);
+  assert.equal(fp.token_count, 4000);
+  assert.equal(fp.estimated_tokens, null, '精确用量不标成估算');
+  assert.equal(fp.exact_usage, true);
+  assert.equal(fp.usage_source, 'message-usage');
   assert.equal(fp.implied_usd_per_mtok, 6);
   assert.match(fp.text, /^价格指纹: /);
   assert.match(fp.text, /唯一命中/);
   assert.match(fp.note, /同价等价类/);
+});
+
+test('价格指纹：chars-v1 估算即使唯一贴合也不能独立定名', async () => {
+  const bg = makeBgApi();
+  resetBg(bg, {
+    official: {session: null, messages: {m1: {basePriceUsd: 0.006}}},
+    estimates: [est('m1', 1000, 0)],
+  });
+  const fp = await bg.priceFingerprintBlock(['grok-4.5-agent']);
+  assert.equal(fp.hit.ratio, 1, '估算比值本身恰好唯一命中');
+  assert.equal(fp.separable, false, '弱估算不能独立触发唯一模型命名');
+  assert.equal(fp.reason, 'not-separable');
+  assert.equal(fp.exact_usage, false);
+  assert.equal(fp.usage_source, 'chars-v1');
+  assert.match(fp.text, /chars-v1.*弱证据/);
+  assert.match(fp.note, /不能独立触发模型定名/);
 });
 
 test('价格指纹：命中与别的候选同价 → 不可定名（同价区分不开）', async () => {
@@ -179,7 +212,7 @@ test('价格指纹：单候选也走同一闸门（唯一命中才 separable）'
   const bg = makeBgApi();
   resetBg(bg, {
     official: {session: null, messages: {m1: {basePriceUsd: 0.012}}},
-    estimates: [est('m1', 2000, 0)],
+    messageUsage: [exact('m1', 2000)],
   });
   const fp = await bg.priceFingerprintBlock(['grok-4.5-agent']);
   assert.equal(fp.separable, true);
@@ -231,7 +264,7 @@ test('价格指纹：贴合窗口就是 ±10%（比值 1.09 通过 / 1.11 拒绝
     {model_key: 'gamma-one', display: 'Gamma One', org: 'gamma', input_usd_per_mtok: 10, output_usd_per_mtok: 10, cache_write_usd_per_mtok: 12.5, cache_read_usd_per_mtok: 1},
   ]}});
   const run = async base => {
-    resetBg(bg, {official: {session: null, messages: {m1: {basePriceUsd: base}}}, estimates: [est('m1', 1000, 0)]});
+    resetBg(bg, {official: {session: null, messages: {m1: {basePriceUsd: base}}}, messageUsage: [exact('m1', 1000)]});
     return bg.priceFingerprintBlock(['gamma-one']);
   };
   const ok = await run(0.0109);   /* 1000t × $10/Mtok = $0.01 → 比值 1.09 */
@@ -246,7 +279,8 @@ test('background.js：贴合判据必须真的数一遍窗口内的模型（源�
   /* v2.19.5：注释写的是「只有一个模型落进阈值」，实现此前只比 top1/top2 的 z 差。 */
   assert.match(bgSrc, /const withinHits = hits\.filter\(hit => zOf\(hit\) <= PRICE_FINGERPRINT_Z\)/, '统计窗口内命中');
   assert.match(bgSrc, /const uniqueInWindow = withinHits\.length === 1/, '窗口内必须恰好一个');
-  assert.match(bgSrc, /const softSeparable = within && separated && uniqueInWindow && !ambiguousGroup/, 'uniqueInWindow 参与闸门');
+  assert.match(bgSrc, /const exactUsage = base\.exact_usage === true/, '唯一定名必须知道 token 是否为同消息精确用量');
+  assert.match(bgSrc, /const softSeparable = exactUsage && within && separated && uniqueInWindow && !ambiguousGroup/, 'exact usage 与 uniqueInWindow 都参与闸门');
   /* 刻度：除数必须是 ln(CONSISTENT_RATIO)，不能是 ln2。 */
   assert.match(bgSrc, /Math\.log\(CONSISTENT_RATIO\)/, 'z 用 ln(CONSISTENT_RATIO) 刻度');
   assert.ok(!/Math\.log\(Number\(hit\.ratio\) \|\| 1\)\) \/ Math\.log\(2\)/.test(bgSrc), '不得再用 ln2 做除数');
@@ -255,14 +289,11 @@ test('background.js：贴合判据必须真的数一遍窗口内的模型（源�
   assert.match(bgSrc, /const PRICE_FINGERPRINT_Z = Math\.log\(PRICE_FINGERPRINT_RATIO\) \/ Math\.log\(CONSISTENT_RATIO\)/, '由比值换算 z');
 });
 
-/* ---------- content.js 侧：按价格定名必须过 separable 闸门 ---------- */
+/* ---------- content.js 侧：价格回退的 separable 闸门必须要求精确 usage ---------- */
 
-test('content.js：抽卡按价格定名只在 separable 时发生（源码级）', () => {
+test('content.js：价格回退只有 exact usage 才能 separable（源码级）', () => {
   const content = read('content.js');
-  /* 单独定名的唯一入口条件：prefs.priceChannel 开启 且 fingerprint.separable === true。 */
-  assert.match(content, /const priceSolo=priceFp\?\.fingerprint\?\.separable===true&&!!priceFp\.fingerprint\.hit;/, '定名闸门必须同时要求 separable 与 hit');
-  /* 未定名分支必须带 !priceSolo（否则数字通道不清晰时会被误定名）。 */
-  assert.match(content, /if\(!namingClear\(lastResult\)&&!priceSolo\)/, '不清晰且价格未唯一定名 → 不改名');
+  assert.match(content, /const exactUsage=fp\.exact_usage===true;\s*const ok=exactUsage&&within&&separated&&uniqueInWindow&&!ambiguous;/, 'chars-v1 回退不能独立触发唯一命名');
   /* 价格指纹默认关闭：DEFAULTS 里必须为 false，sanitize 里必须 === true。 */
   assert.match(content, /priceChannel:false\}/, '默认关闭');
   assert.match(content, /priceChannel:value\?\.priceChannel===true/, '只有显式 true 才开启');
@@ -275,7 +306,7 @@ test('content.js：抽卡按价格定名只在 separable 时发生（源码级�
 });
 
 /* ---------- v2.18.0：价格指纹升级为**独立识别模式**（全库裁决，不借数字候选集）----------
-   与候选集路径的唯一区别是候选来源：候选为空 + fullBank:true 时用全部指纹库模型。
+   与候选集路径的唯一区别是候选来源：候选为空 + fullBank:true 时用 Arena 官方单价表里的文本模型。
    判据（贴合阈值 / 拉不开距离 / 同价歧义）一条不松 —— 全库贴合概率更高，更要守住这条线。 */
 
 const bank = opts => ({bank: {models: opts}, info: {source: 'test'}});
@@ -288,10 +319,10 @@ test('价格指纹（全库）：fullBank 让空候选走全库（整张单价�
     {model_key: 'claude-sonnet-5-agent', display: 'Claude Sonnet 5', org: 'anthropic', input_usd_per_mtok: 3, output_usd_per_mtok: 15, cache_write_usd_per_mtok: 3.75, cache_read_usd_per_mtok: 0.3},
     {model_key: 'gpt-6-luna-max-agent', display: 'GPT 6 Luna', org: 'openai', input_usd_per_mtok: 0.1, output_usd_per_mtok: 0.5, cache_write_usd_per_mtok: 0.125, cache_read_usd_per_mtok: 0.01},
   ]}});
-  /* 4000t × $6/Mtok = $0.024（grok-4.5-agent 出价 6）；其余两个出价远，全库内只有它贴合。 */
+  /* 4000 个精确 token × $6/Mtok = $0.024（grok-4.5-agent 出价 6）；其余两个出价远，全库内只有它贴合。 */
   resetBg(bg, {
     official: {session: null, messages: {m1: {basePriceUsd: 0.012}, m2: {basePriceUsd: 0.012}}},
-    estimates: [est('m1'), est('m2')],
+    messageUsage: [exact('m1', 2000), exact('m2', 2000)],
   });
   const fp = await bg.priceFingerprintBlock([], {fullBank: true});
   assert.equal(fp.separable, true);
@@ -299,8 +330,58 @@ test('价格指纹（全库）：fullBank 让空候选走全库（整张单价�
   assert.equal(fp.scope, 'full-bank');
   assert.equal(fp.hit.model_key, 'grok-4.5-agent');
   assert.equal(fp.candidates, 3);
-  assert.match(fp.text, /全库 3 个模型里只有它落进 ±10% 窗口/);
-  assert.match(fp.note, /不借数字候选集/);
+  assert.match(fp.text, /Arena 官方模型池 3 个模型里只有它落进 ±10% 窗口/);
+  assert.match(fp.note, /只在 Arena 官方价目列出的模型里比价/);
+});
+
+test('价格指纹：Gemini 3.8 与 GPT 6.1 按各自单价比较并返回费率明细', async () => {
+  const bg = makeBgApi();
+  /* 1000 in + 1000 out：Gemini 3.8 为 $0.0045，GPT 6.1 为 $0.012。 */
+  resetBg(bg, {
+    official: {session: null, messages: {m1: {basePriceUsd: 0.0045}}},
+    messageUsage: [exact('m1', 1000, 1000)],
+  });
+  const fp = await bg.priceFingerprintBlock(['skimaki-kwc6-agent', 'gpt-6.1-sol-max-agent']);
+  assert.equal(fp.separable, true);
+  assert.equal(fp.hit.model_key, 'skimaki-kwc6-agent');
+  assert.equal(fp.hit.expected_usd, 0.0045);
+  assert.equal(fp.hit.rates.input_usd_per_mtok, 0.75);
+  assert.equal(fp.hit.rates.output_usd_per_mtok, 3.75);
+  assert.equal(fp.runner_up.model_key, 'gpt-6.1-sol-max-agent');
+  assert.equal(fp.runner_up.rates.input_usd_per_mtok, 2);
+  assert.equal(fp.runner_up.rates.output_usd_per_mtok, 10);
+  assert.equal(fp.price_window_hits.length, 1);
+  assert.equal(fp.price_window_hits[0].rates.output_usd_per_mtok, 3.75);
+});
+
+test('价格指纹：窗口内唯一性检查完整排名，不被 top-8 截断', async () => {
+  /* 7 个完整费率模型的比值为 1.3（贴合窗外但排名靠前）；第 9 名费率不全，
+     比值 1.08 仍在 ±10% 窗口。旧逻辑只看前 8 名，会把 best-match 误报成唯一。 */
+  const farExpected = 10.05 / 1.3;
+  const farInput = farExpected - 0.001; // 100k cache-read × $0.01/Mtok = $0.001
+  const nearInput = 10.05 / 1.08;
+  const rows = [
+    {model_key: 'best-match', display: 'Best Match', org: 'test', input_usd_per_mtok: 10, output_usd_per_mtok: 10, cache_read_usd_per_mtok: 0.5},
+    ...Array.from({length: 7}, (_, index) => ({model_key: `outside-window-${index + 1}`, display: `Outside ${index + 1}`, org: 'test', input_usd_per_mtok: farInput, output_usd_per_mtok: 10, cache_read_usd_per_mtok: 0.01})),
+    {model_key: 'within-window-partial', display: 'Within Window Partial', org: 'test', input_usd_per_mtok: nearInput, output_usd_per_mtok: 10, cache_read_usd_per_mtok: null},
+  ];
+  const bg = makeBgApi(null, {pricing: {source: 'test', rows}});
+  const usage = exact('m1', 0, 1_000_000);
+  usage.usage.cacheReadTokens = 100_000;
+  usage.usage.totalTokens = 1_100_000;
+  resetBg(bg, {
+    official: {session: null, messages: {m1: {basePriceUsd: 10.05}}},
+    messageUsage: [usage],
+  });
+  const fp = await bg.priceFingerprintBlock([], {fullBank: true});
+  assert.equal(fp.scope, 'full-bank');
+  assert.equal(fp.hit.model_key, 'best-match');
+  assert.equal(fp.exact_usage, true);
+  assert.equal(fp.price_ranked_models, 9);
+  assert.equal(fp.price_window_matches, 2);
+  assert.deepEqual(Array.from(fp.price_window_hits, hit => hit.model_key), ['best-match', 'within-window-partial']);
+  assert.equal(fp.separable, false, '第 9 名仍落在价格窗口，不能唯一定名');
+  assert.match(fp.text, /贴合窗口内有 2 个模型/);
 });
 
 test('价格指纹（全库）：不给 fullBank 时空候选仍报 no-candidates（语义不混）', async () => {
@@ -350,6 +431,88 @@ test('mergeOpenRouterPrices：补充表缺失/空表 → 原样返回', () => {
   assert.equal(pricingMod.mergeOpenRouterPrices(doc, {rows: [{model_key: 'a', input_usd_per_mtok: 1, output_usd_per_mtok: 2}]}), doc, '无新增时原样返回');
 });
 
+/* ---------- Battle 训练集实测费率补充 ---------- */
+
+test('mergeBattleObservedPrices：Battle 实测覆盖同 key 官方主值，同时保留官方参考', () => {
+  const doc = {rows: [{model_key: 'official-a', display: 'A', input_usd_per_mtok: 1, output_usd_per_mtok: 2}]};
+  const observed = {
+    schema: 'arena-battle-price-rates-v1', source: 'training', generated_at: '2026-10-15', rows: [
+      {model_key: 'official-a', input_usd_per_mtok: 99, output_usd_per_mtok: 99, confidence: 'unanimous-positive-rates'},
+      {model_key: 'observed-b', input_usd_per_mtok: 3, output_usd_per_mtok: 4, cache_read_usd_per_mtok: 0.3, confidence: 'unanimous-positive-rates', observed_samples: {messages: 3}},
+      {model_key: 'missing-c', input_usd_per_mtok: 3, output_usd_per_mtok: null, confidence: 'unanimous-positive-rates'},
+      {model_key: 'conflicted-d', input_usd_per_mtok: 3, output_usd_per_mtok: 4, confidence: 'conflicted'},
+    ],
+  };
+  const merged = pricingMod.mergeBattleObservedPrices(doc, observed);
+  assert.equal(merged.rows.length, 2, '只新增稳定且 input/output 双正的 observed-b');
+  assert.equal(merged.rows[0].input_usd_per_mtok, 99, '★ 同 key 时 Battle 实测是主值');
+  assert.equal(merged.rows[0].arena_official_reference.input_usd_per_mtok, 1, '官方价保留为辅助参考');
+  assert.equal(merged.rows[1].model_key, 'observed-b');
+  assert.equal(merged.rows[1].source, 'arena-battle-observed');
+  assert.equal(merged.rows[1].observed_samples.messages, 3);
+  assert.equal(merged.battle_observed_supplement.added, 1);
+  assert.equal(merged.battle_observed_supplement.overridden, 1);
+  assert.equal(merged.battle_observed_supplement.applied, 2);
+  assert.equal(doc.rows.length, 1, '不改动入参');
+});
+
+test('价格指纹：训练集稳定实测模型进入 Arena 候选池并披露来源', async () => {
+  const bg = makeBgApi(null, {
+    pricing: {source: 'live', rows: [
+      {model_key: 'observed-only', display: 'Observed Only', input_usd_per_mtok: 20, output_usd_per_mtok: 40},
+    ]},
+    battleRates: {
+      schema: 'arena-battle-price-rates-v1', source: 'training', generated_at: '2026-10-15', rows: [
+        {model_key: 'observed-only', display: 'Observed Only', input_usd_per_mtok: 2, output_usd_per_mtok: 5,
+          cache_read_usd_per_mtok: null, cache_write_usd_per_mtok: null, confidence: 'unanimous-positive-rates',
+          observed_samples: {messages: 4, input: 4, output: 4, cache_read: 0, cache_write: 0}},
+      ],
+    },
+  });
+  resetBg(bg, {
+    official: {session: null, messages: {m1: {basePriceUsd: 0.007}}},
+    messageUsage: [exact('m1', 1000, 1000)],
+  });
+  const fp = await bg.priceFingerprintBlock(['observed-only']);
+  assert.equal(fp.separable, true);
+  assert.equal(fp.hit.model_key, 'observed-only');
+  assert.equal(fp.hit.price_source, 'arena-battle-observed');
+  assert.equal(fp.hit.observed_samples.messages, 4);
+  assert.equal(fp.hit.official_reference_rates.input_usd_per_mtok, 20, '官方价仍作为辅助参考返回');
+  assert.equal(fp.pricing_policy, 'battle-observed-then-arena-official-then-openrouter');
+  assert.equal(fp.battle_observed_rates.overridden, 1);
+});
+
+test('价格指纹：费率组代表优先 Battle 实测，但仍保持不可唯一定名', async () => {
+  const bill = {basePriceUsd: 0.014, actual: {
+    inputTokensCostUsd: 0.004, outputTokensCostUsd: 0.01,
+    cacheWriteTokensCostUsd: 0, cacheReadTokensCostUsd: 0, totalCostUsd: 0.014,
+  }};
+  const bg = makeBgApi(null, {
+    pricing: {source: 'live', rows: [
+      {model_key: 'official-first', display: 'Official First', input_usd_per_mtok: 2, output_usd_per_mtok: 5},
+      {model_key: 'official-second', display: 'Official Second', input_usd_per_mtok: 2, output_usd_per_mtok: 5},
+    ]},
+    battleRates: {schema: 'arena-battle-price-rates-v1', source: 'training', rows: [
+      {model_key: 'battle-second', display: 'Battle Second', input_usd_per_mtok: 4, output_usd_per_mtok: 10,
+        cache_read_usd_per_mtok: null, cache_write_usd_per_mtok: null, confidence: 'unanimous-positive-rates',
+        observed_samples: {messages: 4, input: 4, output: 4, cache_read: 0, cache_write: 0}},
+    ]},
+  });
+  resetBg(bg, {official: {session: null, messages: {mZ: bill}}});
+  const fp = await bg.priceFingerprintBlock([], {fullBank: true, costPayload: {messages: {mZ: bill}}});
+  assert.equal(fp.separable, false, '仍有多个合法费率组，不能定名');
+  assert.equal(fp.rate_family.models.length, 1, 'Battle 是独立费率组');
+  assert.equal(fp.rate_family.members, 3, '其他两个官方候选仍保留，未假装唯一');
+  assert.equal(fp.rate_family.groups, 2);
+  assert.equal(fp.rate_family.models[0].model_key, 'battle-second', '★ Battle 组即使人数更少也优先展示');
+  assert.equal(fp.rate_family.models[0].price_source, 'arena-battle-observed');
+  assert.equal(fp.rate_family.price_source, 'arena-battle-observed');
+  assert.equal(fp.hard_filter.candidates[0].model_key, 'battle-second', '硬筛选并列列表也按来源优先级');
+  assert.match(fp.text, /Battle 实测优先旁证/);
+  assert.match(fp.text, /不能唯一定名/);
+});
+
 /* ★ 真机回归（2026-10-13）：用户截图那条账单 —— 参考扩展 cost-browser-extension 报
    `deepseek/deepseek-v4-flash-vision-exp`（条件推算 输出 20 / 缓存读 8192，上游成本 $0.00006913312）。
    该模型**既不在 Arena 榜单（208 行）也不在指纹库（21 个）**里，所以此前我们只能报「不能唯一定名」。
@@ -395,11 +558,12 @@ const familyBill = () => billFor(
 
 test('价格指纹：软判据命中不在费率族里 → 判为分歧、绝不定名（v2.19.7 真机回归）', async () => {
   const bg = makeBgApi(null, {pricing: {source: 'live', rows: FAMILY_ROWS}});
-  /* 1 个估算 token：opus（$75/Mtok）期望 $7.5e-5，与账单 $6.897e-5 比值 0.9196 → 落在 ±10% 窗口；
-     两个便宜模型期望 $5e-7 → 比值 137.9，远在窗外。于是软判据「唯一命中」opus —— 正是真机那个错答案。 */
+  /* 1 个精确 output token：opus（$75/Mtok）期望 $7.5e-5，与账单 $6.897e-5 比值 0.9196 → 落在 ±10% 窗口；
+     两个便宜模型期望 $5e-7 → 比值 137.9，远在窗外。故精确软判据唯一命中 opus；138-token 的冲突估算会落在便宜族，必须被 exact usage 压过。 */
   resetBg(bg, {
     official: {session: null, messages: {m2: familyBill()}},
-    estimates: [est('m2', 1, 0)],
+    estimates: [est('m2', 138, 0)],
+    messageUsage: [exact('m2', 1)],
   });
   const fp = await bg.priceFingerprintBlock(['claude-haiku-x', 'gpt-luna-x', 'claude-opus-x'], {costPayload: {messages: {m2: familyBill()}}});
   assert.equal(fp.hard_filter.state, 'multiple', '两个便宜模型费率相同 → 都能整除');
@@ -478,12 +642,15 @@ test('costReverseBlock：没配上对时也带上费率族（v2.19.9 真机回�
   assert.match(blk.text, /费率结构指向/);
 });
 
-test('background.js：全库池子用整张单价表 + 依赖闭包含 openrouter-prices.json（源码级）', () => {
+test('background.js：全库池子接入 Battle 实测价 + 依赖闭包含两张补充表（源码级）', () => {
   const bgSrc = read('background.js');
   assert.match(bgSrc, /ids = table\.all\(\)\.filter\(profile => profile\.kind !== 'media'\)\.map\(profile => profile\.model_key\);/, '全库池子来自整张单价表');
+  assert.match(bgSrc, /const BATTLE_PRICE_RATES_FILE = 'arena-battle-price-rates\.json';/, 'Battle 实测费率文件名常量');
+  assert.match(bgSrc, /void chrome\.runtime\.getURL\('arena-battle-price-rates\.json'\);/, '★ Battle 实测费率打包闭包锚点');
   assert.match(bgSrc, /const OPENROUTER_PRICES_FILE = 'openrouter-prices\.json';/, '补充表文件名常量');
   assert.match(bgSrc, /void chrome\.runtime\.getURL\('openrouter-prices\.json'\);/, '★ 打包闭包锚点（变量文件名扫不到）');
-  assert.match(bgSrc, /mergeOpenRouterPrices\(rawDoc, prices\)/, 'decoratePricingTable 里合并');
+  assert.match(bgSrc, /mergeBattleObservedPrices\(rawDoc, battleRates\)/, '先合并 Battle 实测费率');
+  assert.match(bgSrc, /mergeOpenRouterPrices\(observed, prices\)/, '再用 OpenRouter 兜底');
 });
 
 test('价格指纹（全库）：第二名拉不开距离 → 降级（全库更容易撞价，判据必须守住）', async () => {
@@ -503,29 +670,81 @@ test('价格指纹（全库）：第二名拉不开距离 → 降级（全库更
 
 test('content.js：识别模式含 price，且 sanitize 接受 price', () => {
   const content = read('content.js');
-  assert.match(content, /\['price','价格指纹 · 1题按价反推'\]/, '下拉含价格指纹模式');
-  assert.match(content, /value\?\.mode==='price'\?'price':'quick'/, 'sanitize 接受 price');
-  assert.match(content, /if\(prefs\.mode==='price'\)\{/, 'drawRound 有价格模式分支');
+  assert.match(content, /\[\['price','价格指纹'\],\['quick','数字指纹'\]/, '下拉含价格指纹模式');
+  assert.match(content, /const mode=\['price','quick','combined'\]\.includes\(value\?\.mode\)\?value\.mode:/, 'sanitize 接受 price');
+  assert.match(content, /const priceMode=prefs\.mode==='price';/, '抽卡有价格模式分支');
   assert.match(content, /if\(priceMode\)break;/, '价格模式只发 1 题');
 });
 
-test('content.js：价格模式走全库裁决（AMP_PRICE_FULL），且未唯一定名不改名', () => {
+test('content.js：价格模式走全库裁决，冲突拒绝候选且弱结论只作建议、不作标签', () => {
   const content = read('content.js');
   assert.match(content, /type:'AMP_PRICE_FULL'/, '价格模式请后台做全库裁决');
-  assert.match(content, /const pmSolo=pm\?\.fingerprint\?\.separable===true&&!!pm\.fingerprint\.hit;/, '定名闸门=separable+hit');
-  assert.match(content, /status:'price-none'/, '未唯一定名 → 状态 price-none（不改名）');
-  assert.match(content, /价格指纹未唯一定名/, '未定名有明确文案');
-  /* 价格分支必须在 lastResult 判空之前：数字通道无结果也要能按价定名。 */
-  const priceIdx = content.indexOf("if(prefs.mode==='price'){");
-  const nullIdx = content.indexOf("if(!lastResult)return");
-  assert.ok(priceIdx > 0 && nullIdx > priceIdx, '价格分支在 lastResult 判空之前（不依赖数字结果）');
+  assert.match(content, /if\(mode==='price'\|\|!numeric\)\{\s*const pm=await priceModeFor\(active\);/, '价格模式独立调用全库裁决');
+  assert.match(content, /if\(conflicted&&!prefs\.forceBest\)return null;/, '默认模式下冲突仍不返回定名候选');
+  assert.match(content, /note:fp\.separable\?'价格唯一定名':'估算比值最接近（非确定识别）'/, '弱估算候选明确标为非确定识别');
+  assert.match(content, /if\(pm\?\.fingerprint&&pm\.fingerprint\.separable!==true&&!pm\.fingerprint\.forced_best\)\{/, '默认模式下非唯一价格结论不回传为识别标签');
+  assert.match(content, /kind:'price-inconclusive'/, '弱价格结果仅保留为不确定状态');
+  assert.match(content, /label:fp\.separable===true&&fp\.hit\?/, '价格模式只有 separable 才提供模型标签');
+  assert.match(content, /view\?\.price_window_hits/, '价格卡展示完整贴合窗口候选');
+  assert.match(content, /observed_usd:fp\.observed_usd/, '旁证回退保留观察账单金额');
+  assert.match(content, /hit:best,runner_up:runner/, '旁证回退保留前两名费率明细');
+  assert.match(content, /if\(choice\?\.label&&active&&prefs\.renameAnyway&&!cancelled\)/, '改名仍需用户显式开启');
+});
+
+test('content.js：价格探针结束后等待逐条账单就绪，不把首次空账单直接报成无候选', () => {
+  const content = read('content.js');
+  assert.match(content, /const COST_READY_ATTEMPTS=6,COST_READY_DELAY_MS=900;/, '账单就绪重试有明确上限');
+  assert.match(content, /records\.get\(active\)\?\.priceProbe\?\.completedAt/, '只对刚完成的价格探针启用短时重试');
+  assert.match(content, /await sleep\(COST_READY_DELAY_MS\)/, '重试间隔不会忙轮询');
+  assert.match(content, /账单尚未就绪；正在重试/, '等待过程对用户可见');
+  assert.match(content, /messages 为空/, '最终失败保留可诊断原因');
+});
+
+test('content.js：只取最接近是默认关闭的显式 opt-in，强制结果仍披露原证据歧义', () => {
+  const content = read('content.js');
+  assert.match(content, /renameAnyway:false,forceBest:false/, '强制单选默认关闭');
+  assert.match(content, /forceBest:value\?\.forceBest===true/, '仅显式 true 才开启');
+  assert.match(content, /savePrefs\(\{forceBest:!!drawForceBest\.checked\}\)/, '设置可持久化');
+  assert.match(content, /按 Battle 实测 > Arena 官方 > OpenRouter 与当前\$\{channel\}贴合排序/, '强制选择沿用来源优先和当前贴合排序');
+  assert.match(content, /fp\.forced_best=true/, '强制结果有独立标记，不伪造自然唯一');
+  assert.match(content, /原始证据仍有歧义/, '界面披露原证据歧义');
+  assert.match(content, /renderPriceCandidates\(view,separable\)/, '强制单选只改顶部名称，不隐藏下方原有候选证据');
+  assert.match(content, /下方候选与证据照常保留/, '强制单选的展示边界写清楚');
+  assert.match(content, /if\(choice\?\.label&&active&&prefs\.renameAnyway&&!cancelled\)/, '实际改名仍由原改名开关独立控制');
+});
+
+test('content.js：数字模式尊重统计置信门，不用价格目录替换最近模型', () => {
+  const content = read('content.js');
+  assert.match(content, /if\(mode==='combined'&&raw\.length\)\{/, '只有组合模式用价格目录筛选候选');
+  assert.match(content, /const numericOnly=mode!=='price'&&mode!=='combined';/, '数字独立模式与价格/组合模式分开');
+  assert.match(content, /const nearest=result\?\.nearest;/, '数字独立模式使用统计引擎的原始最近模型');
+  assert.match(content, /const confident=result\?\.status==='clear'&&decision\?\.set_size===1&&!decision\?\.off_reference;/, '单模型标签要求 clear、单候选、非混合/漂移');
+  assert.match(content, /return prefs\.renameAnyway\?candidate:null;/, '弱结论只有用户显式开启时才可作为改名候选');
+  assert.match(content, /record\.recognition=numericOnly\?null:/, '数字模式不以最近候选覆盖 clear/close/weak 判决');
+  assert.match(content, /keepClassifierVerdict=numericOnly&&!choice;/, '弱数字结果回显原统计判决');
+});
+
+test('content.js：价格不唯一时折叠摘要不突出单一候选名', () => {
+  const content = read('content.js');
+  assert.match(content, /组合候选（启发式，非确定）/);
+  assert.match(content, /价格唯一 · \$\{suggestion\.label\}/);
+  assert.match(content, /价格未定 · \$\{count\} 个候选/);
+  assert.match(content, /价格未定 · 候选见详情/);
+});
+
+test('content.js：披露数字指纹库对 Gemini 的版本覆盖限制', () => {
+  const content = read('content.js');
+  assert.match(content, /ModelTrace d4131b3/);
+  assert.match(content, /离线库仅 GPT\/Claude，不含 Gemini/);
+  assert.match(content, /WhatsMyLLM v2026\.09\.5/);
+  assert.match(content, /指纹库只含 Gemini 3\.8 Flash 参考，其他 Gemini 版本未覆盖/);
 });
 
 test('content.js：单次识别的价格按钮与 run(price) 分支存在', () => {
   const content = read('content.js');
   assert.match(content, /runPriceButton=el\('button','all','价格识别 · 1题按价'\)/, '价格识别按钮');
   assert.match(content, /runPriceButton\.addEventListener\('click',\(\)=>void run\('price'\)\)/, '按钮触发 run(price)');
-  assert.match(content, /const priceMode=mode==='price';/, 'run() 识别 price 模式');
+  assert.match(content, /const priceMode=mode==='price',combinedMode=mode==='combined';/, 'run() 识别 price 模式');
 });
 
 test('background.js：AMP_PRICE_FULL handler 存在且来源校验与 AMP_COST_REVERSE 同源', () => {
@@ -648,6 +867,21 @@ test('normalizeCostBreakdown：四项分项 + 自洽校验（和不等于总额 
   assert.equal(bad.total_consistent, false);
   assert.equal(pricingMod.normalizeCostBreakdown({}), null, '没有任何分项 → null');
   assert.equal(pricingMod.normalizeCostBreakdown({actual: {inputTokensCostUsd: 0.001, outputTokensCostUsd: 0.002, cacheWriteTokensCostUsd: 0, cacheReadTokensCostUsd: 0, totalCostUsd: 0.003, isFallback: true}}).is_fallback, true);
+  const media = pricingMod.normalizeCostBreakdown({actual: {imageGenerationCostUsd: 0.02, totalCostUsd: 0.02}});
+  assert.equal(media.has_non_token_media_cost, true, '保留图像生成费用标记');
+  assert.equal(pricingMod.hardFilterByCosts(media, pricingMod.normalizePricingTable(tinyTable())).state, 'non-token-media-cost');
+});
+
+test('priceFingerprintBlock：图像生成费用没有对应 modality usage 时 fail closed', async () => {
+  const bg = makeBgApi();
+  const costPayload = {session: null, messages: {m1: {basePriceUsd: 0.024, actual: {
+    inputTokensCostUsd: 0.001, outputTokensCostUsd: 0.003, imageGenerationCostUsd: 0.02, totalCostUsd: 0.024,
+  }}}};
+  const fp = await bg.priceFingerprintBlock([], {fullBank: true, costPayload});
+  assert.equal(fp.blocked, 'non-token-media-cost');
+  assert.equal(fp.separable, false);
+  assert.equal(fp.hit, undefined, '不能把图像费用折成 GPT 等纯 token 候选');
+  assert.match(fp.text, /图像/);
 });
 
 test('hardFilterByCosts：能整除的模型才留，unique 态给出唯一定名', () => {
@@ -759,7 +993,8 @@ test('priceFingerprintBlock：硬筛选唯一解 + 软判据同指 → evidence=
      新窗口（±10%）正确拒绝。测试数据必须真的满足判据，否则测的是阈值不是交叉验证。 */
   resetBg(bg, {
     official: {session: null, messages: {m1: {basePriceUsd: 0.004}, m2: {basePriceUsd: 0.004}}},
-    estimates: [est('m1', 1000, 0), est('m2', 800, 0)],
+    estimates: [est('m1', 1000, 0), est('m2', 90000, 0)],
+    messageUsage: [exact('m2', 800)],
   });
   /* 硬筛选账单：按 alpha 费率构造，R=2001 让 beta（费率 2/2/2/5 倍）除不尽 → 唯一解。 */
   const costPayload = {messages: {m2: billFor({input_usd_per_mtok: 1, output_usd_per_mtok: 4, cache_write_usd_per_mtok: 1.25, cache_read_usd_per_mtok: 0.1}, {I: 1000, O: 250, W: 800, R: 2001})}};
@@ -795,7 +1030,8 @@ test('priceFingerprintBlock：两条证据分歧 → evidence=conflict 且 separ
      ★ v2.19.5 前这里写 1000t（比值 0.65、偏差 35%），靠旧阈值的宽松才勉强算「贴合」。 */
   resetBg(bg, {
     official: {session: null, messages: {m1: {basePriceUsd: 0.004}, m2: {basePriceUsd: 0.004}}},
-    estimates: [est('m1', 1000, 0), est('m2', 650, 0)],
+    estimates: [est('m1', 1000, 0), est('m2', 90000, 0)],
+    messageUsage: [exact('m2', 650)],
   });
   /* 硬筛选账单按 beta 费率构造，各项取奇数/非常数 → alpha 除不尽。 */
   const costPayload = {messages: {m2: billFor({input_usd_per_mtok: 0.3, output_usd_per_mtok: 0.6, cache_write_usd_per_mtok: 0.5, cache_read_usd_per_mtok: 0.05}, {I: 1000, O: 501, W: 2000, R: 20001})}};
@@ -880,12 +1116,13 @@ test('background.js：cache 补充表只补不覆盖 + 读不到不阻塞 + 依�
   assert.match(bg, /getURL\('arena-cache-rates\.json'\)/, '★ 依赖闭包锚点：字面量 getURL 必须在（否则打包漏文件）');
 });
 
-test('打包闭包：tools/package.mjs 能发现 arena-cache-rates.json（新增数据文件不漏打）', async () => {
+test('打包闭包：tools/package.mjs 能发现 cache 与 Battle 实测费率文件（新增数据文件不漏打）', async () => {
   const {execFileSync} = await import('node:child_process');
   const {fileURLToPath} = await import('node:url');
   const root = fileURLToPath(new URL('..', import.meta.url));
   const out = execFileSync(process.execPath, ['tools/package.mjs', '--check-only'], {cwd: root, encoding: 'utf8'});
   assert.match(out, /arena-cache-rates\.json/, '补充表在运行时依赖清单里');
+  assert.match(out, /arena-battle-price-rates\.json/, 'Battle 实测费率表在运行时依赖清单里');
   assert.match(out, /✅ 依赖完整/, '依赖完整校验通过');
 });
 

@@ -53,6 +53,7 @@
         "https://canary.arena.ai/*"
       ],
       "js": [
+        "token-estimator.js",
         "network-sniffer.js"
       ],
       "run_at": "document_start",
@@ -69,6 +70,23 @@
         "conversation-rename.js",
         "content.js"
       ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.google.com/recaptcha/api2/anchor*",
+        "https://www.google.com/recaptcha/enterprise/anchor*",
+        "https://google.com/recaptcha/api2/anchor*",
+        "https://google.com/recaptcha/enterprise/anchor*",
+        "https://www.recaptcha.net/recaptcha/api2/anchor*",
+        "https://www.recaptcha.net/recaptcha/enterprise/anchor*",
+        "https://recaptcha.net/recaptcha/api2/anchor*",
+        "https://recaptcha.net/recaptcha/enterprise/anchor*"
+      ],
+      "js": [
+        "recaptcha-anchor.js"
+      ],
+      "all_frames": true,
       "run_at": "document_idle"
     },
     {

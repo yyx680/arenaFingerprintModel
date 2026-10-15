@@ -1,0 +1,1213 @@
+{
+  "schema": "arena-battle-price-rates-v1",
+  "generated_at": "2026-10-15T08:02:40.589Z",
+  "source": "arena-battle-price-training.json (revealed Arena Battle labels + same-message actual cost buckets)",
+  "training_generated_at": "2026-10-15T07:15:02.234Z",
+  "unit": "usd_per_million_tokens",
+  "policy": "provider usage only; agent_p50 excluded; unanimous positive rate per bucket; input/output required; Battle observed primary, Arena official reference, OpenRouter fallback",
+  "training_models_seen": 72,
+  "included_models": 63,
+  "excluded_models": {
+    "missing_required_rate": 8,
+    "conflicting_required_rate": 1
+  },
+  "rows": [
+    {
+      "model_key": "claude-fable-5",
+      "display": "claude-fable-5",
+      "org": null,
+      "input_usd_per_mtok": 10,
+      "output_usd_per_mtok": 50,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-fable-5.1-high",
+      "display": "claude-fable-5.1-high",
+      "org": null,
+      "input_usd_per_mtok": 10,
+      "output_usd_per_mtok": 50,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 2,
+        "input": 2,
+        "output": 2,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-fable-5.1-low",
+      "display": "claude-fable-5.1-low",
+      "org": null,
+      "input_usd_per_mtok": 10,
+      "output_usd_per_mtok": 50,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": 12.5,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 2,
+        "input": 1,
+        "output": 2,
+        "cache_read": 0,
+        "cache_write": 1,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-fable-5.1-max",
+      "display": "claude-fable-5.1-max",
+      "org": null,
+      "input_usd_per_mtok": 10,
+      "output_usd_per_mtok": 50,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-haiku-4-5-20251001",
+      "display": "claude-haiku-4-5-20251001",
+      "org": null,
+      "input_usd_per_mtok": 1,
+      "output_usd_per_mtok": 5,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-haiku-5.5-high",
+      "display": "claude-haiku-5.5-high",
+      "org": null,
+      "input_usd_per_mtok": 0.1,
+      "output_usd_per_mtok": 0.5,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 6,
+        "input": 6,
+        "output": 6,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-4-6",
+      "display": "claude-opus-4-6",
+      "org": null,
+      "input_usd_per_mtok": 5,
+      "output_usd_per_mtok": 25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-4-6-thinking",
+      "display": "claude-opus-4-6-thinking",
+      "org": null,
+      "input_usd_per_mtok": 5,
+      "output_usd_per_mtok": 25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-5",
+      "display": "claude-opus-5",
+      "org": null,
+      "input_usd_per_mtok": 5,
+      "output_usd_per_mtok": 25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-5-high",
+      "display": "claude-opus-5-high",
+      "org": null,
+      "input_usd_per_mtok": 5,
+      "output_usd_per_mtok": 25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": 6.25,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 2,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 1,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-5-low",
+      "display": "claude-opus-5-low",
+      "org": null,
+      "input_usd_per_mtok": 5,
+      "output_usd_per_mtok": 25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-5-max",
+      "display": "claude-opus-5-max",
+      "org": null,
+      "input_usd_per_mtok": 5,
+      "output_usd_per_mtok": 25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-5.5",
+      "display": "claude-opus-5.5",
+      "org": null,
+      "input_usd_per_mtok": 4,
+      "output_usd_per_mtok": 20,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-5.5-high",
+      "display": "claude-opus-5.5-high",
+      "org": null,
+      "input_usd_per_mtok": 4,
+      "output_usd_per_mtok": 20,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 2,
+        "input": 2,
+        "output": 2,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-opus-5.5-low",
+      "display": "claude-opus-5.5-low",
+      "org": null,
+      "input_usd_per_mtok": 4,
+      "output_usd_per_mtok": 20,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-sonnet-5-5-high",
+      "display": "claude-sonnet-5-5-high",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 10,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "claude-sonnet-5-5-xhigh",
+      "display": "claude-sonnet-5-5-xhigh",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 10,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": 2.5,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 3,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 1,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "deepseek-v4.1-flash-max",
+      "display": "deepseek-v4.1-flash-max",
+      "org": null,
+      "input_usd_per_mtok": 0.2156,
+      "output_usd_per_mtok": 0.6468,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gemini-3.1-pro-preview",
+      "display": "gemini-3.1-pro-preview",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 12,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gemini-3.7-flash",
+      "display": "gemini-3.7-flash",
+      "org": null,
+      "input_usd_per_mtok": 0.75,
+      "output_usd_per_mtok": 3.75,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gemini-3.8-flash-high",
+      "display": "gemini-3.8-flash-high",
+      "org": null,
+      "input_usd_per_mtok": 0.75,
+      "output_usd_per_mtok": 3.75,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 11,
+        "input": 11,
+        "output": 11,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gemma-4-31b",
+      "display": "gemma-4-31b",
+      "org": null,
+      "input_usd_per_mtok": 0.045196128,
+      "output_usd_per_mtok": 0.16,
+      "cache_read_usd_per_mtok": 0.008,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 1,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "glm-5.1",
+      "display": "glm-5.1",
+      "org": null,
+      "input_usd_per_mtok": 1.4,
+      "output_usd_per_mtok": 4.4,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "glm-5.2 (max)",
+      "display": "glm-5.2 (max)",
+      "org": null,
+      "input_usd_per_mtok": 1.4,
+      "output_usd_per_mtok": 4.4,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 2,
+        "input": 2,
+        "output": 2,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "glm-5.3 (max)",
+      "display": "glm-5.3 (max)",
+      "org": null,
+      "input_usd_per_mtok": 1.4,
+      "output_usd_per_mtok": 4.4,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "glm-5.3-flash",
+      "display": "glm-5.3-flash",
+      "org": null,
+      "input_usd_per_mtok": 0.15,
+      "output_usd_per_mtok": 0.5,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 6,
+        "input": 6,
+        "output": 6,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-5.6-sol-medium",
+      "display": "gpt-5.6-sol-medium",
+      "org": null,
+      "input_usd_per_mtok": 4,
+      "output_usd_per_mtok": 20,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 2,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-5.6-sol-xhigh",
+      "display": "gpt-5.6-sol-xhigh",
+      "org": null,
+      "input_usd_per_mtok": 4,
+      "output_usd_per_mtok": 20,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 2,
+        "input": 2,
+        "output": 2,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-5.6-terra-low",
+      "display": "gpt-5.6-terra-low",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 12,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-5.6-terra-medium",
+      "display": "gpt-5.6-terra-medium",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 12,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 6,
+        "input": 6,
+        "output": 6,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-5.6-terra-xhigh",
+      "display": "gpt-5.6-terra-xhigh",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 12,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-6-astra-max",
+      "display": "gpt-6-astra-max",
+      "org": null,
+      "input_usd_per_mtok": 10,
+      "output_usd_per_mtok": 50,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-6-luna-max",
+      "display": "gpt-6-luna-max",
+      "org": null,
+      "input_usd_per_mtok": 0.1,
+      "output_usd_per_mtok": 0.5,
+      "cache_read_usd_per_mtok": 0.01,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 28,
+        "input": 24,
+        "output": 28,
+        "cache_read": 5,
+        "cache_write": 0,
+        "model_ids": 2,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-6-sol",
+      "display": "gpt-6-sol",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 10,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-6-sol-max",
+      "display": "gpt-6-sol-max",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 10,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "gpt-6.1-sol-max",
+      "display": "gpt-6.1-sol-max",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 10,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "grok-4.6-low",
+      "display": "grok-4.6-low",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 6,
+      "cache_read_usd_per_mtok": 0.5,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 7,
+        "input": 7,
+        "output": 7,
+        "cache_read": 7,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "grok-4.6-medium",
+      "display": "grok-4.6-medium",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 6,
+      "cache_read_usd_per_mtok": 0.5,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 7,
+        "input": 7,
+        "output": 7,
+        "cache_read": 7,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "grok-4.6-xhigh",
+      "display": "grok-4.6-xhigh",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 6,
+      "cache_read_usd_per_mtok": 0.5,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 6,
+        "input": 5,
+        "output": 6,
+        "cache_read": 5,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "grok-4.7-xhigh",
+      "display": "grok-4.7-xhigh",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 6,
+      "cache_read_usd_per_mtok": 0.5,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 3,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "hy3",
+      "display": "hy3",
+      "org": null,
+      "input_usd_per_mtok": 0.132,
+      "output_usd_per_mtok": 0.528,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 0
+      }
+    },
+    {
+      "model_key": "hy4-preview",
+      "display": "hy4-preview",
+      "org": null,
+      "input_usd_per_mtok": 0.834,
+      "output_usd_per_mtok": 2.501,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "inkling",
+      "display": "inkling",
+      "org": null,
+      "input_usd_per_mtok": 1,
+      "output_usd_per_mtok": 4.05,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "inkling-small",
+      "display": "inkling-small",
+      "org": null,
+      "input_usd_per_mtok": 0.45,
+      "output_usd_per_mtok": 1.2,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "kimi-k3",
+      "display": "kimi-k3",
+      "org": null,
+      "input_usd_per_mtok": 3,
+      "output_usd_per_mtok": 15,
+      "cache_read_usd_per_mtok": 0.3,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 3,
+        "output": 4,
+        "cache_read": 1,
+        "cache_write": 0,
+        "model_ids": 2,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "mimo-v2.5-pro",
+      "display": "mimo-v2.5-pro",
+      "org": null,
+      "input_usd_per_mtok": 0.435,
+      "output_usd_per_mtok": 0.87,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 9,
+        "input": 9,
+        "output": 9,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "mimo-v2.6-flash",
+      "display": "mimo-v2.6-flash",
+      "org": null,
+      "input_usd_per_mtok": 0.14,
+      "output_usd_per_mtok": 0.28,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "mimo-v2.6-pro",
+      "display": "mimo-v2.6-pro",
+      "org": null,
+      "input_usd_per_mtok": 0.435,
+      "output_usd_per_mtok": 0.87,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "minimax-m2.7",
+      "display": "minimax-m2.7",
+      "org": null,
+      "input_usd_per_mtok": 0.3,
+      "output_usd_per_mtok": 1.2,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "minimax-m3",
+      "display": "minimax-m3",
+      "org": null,
+      "input_usd_per_mtok": 0.3,
+      "output_usd_per_mtok": 1.2,
+      "cache_read_usd_per_mtok": 0.06,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 6,
+        "input": 3,
+        "output": 6,
+        "cache_read": 6,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "mistral-large-3",
+      "display": "mistral-large-3",
+      "org": null,
+      "input_usd_per_mtok": 0.5,
+      "output_usd_per_mtok": 1.5,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "mistral-large-4",
+      "display": "mistral-large-4",
+      "org": null,
+      "input_usd_per_mtok": 1.36,
+      "output_usd_per_mtok": 4.18,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 7,
+        "input": 6,
+        "output": 6,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "mistral-medium-3.5",
+      "display": "mistral-medium-3.5",
+      "org": null,
+      "input_usd_per_mtok": 1.5,
+      "output_usd_per_mtok": 7.5,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "muse-spark-1.1",
+      "display": "muse-spark-1.1",
+      "org": null,
+      "input_usd_per_mtok": 1.25,
+      "output_usd_per_mtok": 4.25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 2,
+        "input": 2,
+        "output": 2,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "muse-spark-1.2-xhigh",
+      "display": "muse-spark-1.2-xhigh",
+      "org": null,
+      "input_usd_per_mtok": 1.25,
+      "output_usd_per_mtok": 4.25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 2,
+        "input": 2,
+        "output": 2,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "muse-spark-1.3-max",
+      "display": "muse-spark-1.3-max",
+      "org": null,
+      "input_usd_per_mtok": 1.25,
+      "output_usd_per_mtok": 4.25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "muse-spark-1.3-xhigh",
+      "display": "muse-spark-1.3-xhigh",
+      "org": null,
+      "input_usd_per_mtok": 1.25,
+      "output_usd_per_mtok": 4.25,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 6,
+        "input": 6,
+        "output": 6,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "qwen3.5-397b-a17b",
+      "display": "qwen3.5-397b-a17b",
+      "org": null,
+      "input_usd_per_mtok": 0.5,
+      "output_usd_per_mtok": 3.6,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "qwen3.7-max",
+      "display": "qwen3.7-max",
+      "org": null,
+      "input_usd_per_mtok": 2.5,
+      "output_usd_per_mtok": 7.5,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 6,
+        "input": 6,
+        "output": 6,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "qwen3.8-27b",
+      "display": "qwen3.8-27b",
+      "org": null,
+      "input_usd_per_mtok": 0.4,
+      "output_usd_per_mtok": 3,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 5,
+        "input": 5,
+        "output": 5,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "qwen3.8-max",
+      "display": "qwen3.8-max",
+      "org": null,
+      "input_usd_per_mtok": 2,
+      "output_usd_per_mtok": 6,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 3,
+        "input": 3,
+        "output": 3,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "solar-pro4",
+      "display": "solar-pro4",
+      "org": null,
+      "input_usd_per_mtok": 0.09,
+      "output_usd_per_mtok": 0.36,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 4,
+        "input": 4,
+        "output": 4,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    },
+    {
+      "model_key": "step-5-preview",
+      "display": "step-5-preview",
+      "org": null,
+      "input_usd_per_mtok": 1,
+      "output_usd_per_mtok": 2.7,
+      "cache_read_usd_per_mtok": null,
+      "cache_write_usd_per_mtok": null,
+      "confidence": "unanimous-positive-rates",
+      "observed_samples": {
+        "messages": 1,
+        "input": 1,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "model_ids": 1,
+        "providers": 1
+      }
+    }
+  ]
+}

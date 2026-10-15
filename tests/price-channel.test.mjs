@@ -187,15 +187,17 @@ test('只给 base 与 charged 时自动推出倍率；截图实测恰好 ×2', (
 });
 
 test('costDetailFromSession 把 /cost 的 session 聚合同形化（base 口径）', () => {
-  const detail = costDetailFromSession({actualTotalUsd: 1.06317612, chargedTotalUsd: 2.12635223, basePriceUsd: 1.06317612, marginMultiplier: 2, messageCount: 30});
+  const detail = costDetailFromSession({actualTotalUsd: 2.12635223, chargedTotalUsd: 2.12635223, basePriceUsd: 1.06317612, marginMultiplier: 2, messageCount: 30});
   assert.equal(detail.base_usd, 1.06317612);
+  assert.equal(detail.actual_usd, 2.12635223, 'actual 单独保留，不冒充 base');
   assert.equal(detail.charged_usd, 2.12635223);
   assert.equal(detail.multiplier, 2);
   assert.equal(detail.source, 'cost-route/session');
   // 没给倍率时用 charged/base 推。
   assert.equal(costDetailFromSession({basePriceUsd: 1, chargedTotalUsd: 2}).multiplier, 2);
-  // 只有 actualTotalUsd 时也能给出 base（拿不到 charged 就不编）。
-  assert.equal(costDetailFromSession({actualTotalUsd: 0.5}).base_usd, 0.5);
+  // 只有 actualTotalUsd 时不能假装成 base（拿不到 charged 就不编）。
+  assert.equal(costDetailFromSession({actualTotalUsd: 0.5}).base_usd, null);
+  assert.equal(costDetailFromSession({actualTotalUsd: 0.5}).actual_usd, 0.5);
   assert.equal(costDetailFromSession({actualTotalUsd: 0.5}).charged_usd, null);
   assert.equal(costDetailFromSession(null), null);
   assert.equal(costDetailFromSession({messageCount: 3}), null);

@@ -174,6 +174,10 @@
       const value = Number(obj?.totalCostUsd ?? obj?.actualTotalUsd);
       return Number.isFinite(value) && value >= 0 && value <= 1e7 ? value : null;
     };
+    const pickBaseUsd = (obj) => {
+      const value = Number(obj?.basePriceUsd ?? obj?.base_usd);
+      return Number.isFinite(value) && value >= 0 && value <= 1e7 ? value : null;
+    };
     const num = (value) => (Number.isFinite(Number(value)) ? Number(value) : null);
     const session = parsed.session && typeof parsed.session === 'object' ? {
       actualTotalUsd: num(parsed.session.actualTotalUsd),
@@ -182,6 +186,11 @@
       costMultiplier: num(parsed.session.costMultiplier),
       marginMultiplier: num(parsed.session.marginMultiplier),
       messageCount: Number(parsed.session.messageCount) || null,
+      aggregate: parsed.session.aggregate && typeof parsed.session.aggregate === 'object' ? {
+        basePriceUsd: num(parsed.session.aggregate.basePriceUsd),
+        totalChargedUsd: num(parsed.session.aggregate.totalChargedUsd),
+        totalChargedCredits: num(parsed.session.aggregate.totalChargedCredits),
+      } : null,
     } : null;
     const messages = [];
     if (parsed.messages && typeof parsed.messages === 'object') {
@@ -189,8 +198,9 @@
         if (messages.length >= 50) break;
         const actual = entry && typeof entry === 'object' && entry.actual && typeof entry.actual === 'object' ? entry.actual : null;
         const actualUsd = pickUsd(actual);
-        if (actualUsd === null) continue;
-        messages.push({message_id: String(messageId).slice(0, 64), actual_usd: actualUsd});
+        const baseUsd = pickBaseUsd(actual) ?? pickBaseUsd(entry);
+        if (actualUsd === null && baseUsd === null) continue;
+        messages.push({message_id: String(messageId).slice(0, 64), base_usd: baseUsd, actual_usd: actualUsd});
       }
     }
     if (!session && !messages.length) return;
@@ -207,21 +217,15 @@
      这里解析整个 JSON，把 id / role / participantPosition / modelId 一起带出来。
      实测消息形状：{id, role, participantPosition, modelId, metadata:{usage:{…}}}。 */
   const SESSION_ROUTE_RE = /\/api\/(?:evaluation|chat)\/[^\/?#]+(?:$|\?|\/)/;
+  const MAX_SESSION_JSON = 2000000;
   const messageUsageSeen = new Set();
   /* v2.14.0 Agent 转录估算：/api/chat/<sid> 的会话包**没有** usage 字段（实测），
      于是把 assistant 的 parts（正文 text + 思考 reasoning）按字数折成 token 估算上报。
      只报数字与字符计数、不带任何正文。 */
   const transcriptSeen = new Set();
-  const isCjkCp = (cp) => (cp >= 0x2e80 && cp <= 0x9fff) || (cp >= 0xf900 && cp <= 0xfaff)
-    || (cp >= 0xff00 && cp <= 0xff60) || (cp >= 0x1f200 && cp <= 0x1f2ff)
-    || (cp >= 0x20000 && cp <= 0x2ffff);
+  const tokenEstimator = globalThis.ArenaTokenEstimator;
   function charBuckets(text) {
-    const out = {chars: 0, cjk: 0, other: 0};
-    for (const ch of String(text || '')) {
-      if (isCjkCp(ch.codePointAt(0))) out.cjk += 1; else out.other += 1;
-      out.chars += 1;
-    }
-    return out;
+    return tokenEstimator.count(text);
   }
   function scanTranscriptEstimate(messages, url) {
     let count = 0;
@@ -233,28 +237,32 @@
       if (!message || typeof message !== 'object') continue;
       const parts = Array.isArray(message.parts) ? message.parts : [];
       if (message.role === 'user') {
-        const bucket = {chars: 0, cjk: 0, other: 0};
+        const bucket = tokenEstimator.empty();
         for (const part of parts) {
           if (!part || typeof part !== 'object' || part.type !== 'text' || typeof part.text !== 'string') continue;
           const counted = charBuckets(part.text);
-          bucket.chars += counted.chars; bucket.cjk += counted.cjk; bucket.other += counted.other;
+          tokenEstimator.add(bucket, counted);
         }
         lastUser = {message_id: typeof message.id === 'string' ? message.id.slice(0, 64) : null, chars: bucket};
         continue;
       }
       if (message.role !== 'assistant') continue;
-      const text = {chars: 0, cjk: 0, other: 0};
-      const reasoning = {chars: 0, cjk: 0, other: 0};
+      const text = tokenEstimator.empty();
+      const reasoning = tokenEstimator.empty();
+      let skippedParts = 0;
       for (const part of parts) {
-        if (!part || typeof part !== 'object' || typeof part.text !== 'string') continue;
+        if (!part || typeof part !== 'object') continue;
         const bucket = part.type === 'text' ? text : (part.type === 'reasoning' ? reasoning : null);
-        if (!bucket) continue;
+        if (!bucket) {
+          if (part.type !== 'step-start' && part.type !== 'step-finish') skippedParts++;
+          continue;
+        }
         const counted = charBuckets(part.text);
-        bucket.chars += counted.chars; bucket.cjk += counted.cjk; bucket.other += counted.other;
+        tokenEstimator.add(bucket, counted);
       }
       if (!text.chars && !reasoning.chars) continue;
       const messageId = typeof message.id === 'string' ? message.id.slice(0, 64) : null;
-      const key = `${messageId || ''}|${text.chars},${text.cjk},${text.other}|${reasoning.chars},${reasoning.cjk},${reasoning.other}`;
+      const key = `${messageId || ''}|${JSON.stringify([text, reasoning, skippedParts])}`;
       /* 认领输入下界：**在 dedup 之前**认领，保证同一条消息每次遍历结果一致
          （否则重复抓取时同一条回复会一次带输入、一次不带）。 */
       const inputChars = lastUser ? lastUser.chars : null;
@@ -268,7 +276,7 @@
         message_id: messageId,
         role: 'assistant',
         model_id: typeof message.modelId === 'string' ? message.modelId.slice(0, 120) : null,
-        chars: {text, reasoning},
+        chars: {text, reasoning, skipped_parts: skippedParts},
         input_chars: inputChars,
         input_message_id: inputMessageId,
         url: String(url).slice(0, 200),
@@ -280,7 +288,7 @@
   }
   function scanMessageUsage(text, url) {
     const source = String(text || '');
-    if (!source || source.length > 400000) return;
+    if (!source || source.length > MAX_SESSION_JSON) return;
     let parsed = null;
     try { parsed = JSON.parse(source); } catch { return; }
     const messages = parsed && Array.isArray(parsed.messages) ? parsed.messages : null;
@@ -438,6 +446,15 @@
     }
   }
 
+  /* 会话包超过 20 万字符时，额外解析完整的会话 JSON（上限 200 万）。 */
+  function scanResponseBody(text, where, url) {
+    if (text.length > 200000 && text.length <= MAX_SESSION_JSON &&
+        SESSION_ROUTE_RE.test(String(url || '')) && !COST_ROUTE_RE.test(String(url || ''))) {
+      scanMessageUsage(text, url);
+    }
+    scanText(text.slice(0, 200000), where, url);
+  }
+
   function scanHeaders(headers, url) {
     const get = typeof headers?.get === 'function' ? (name) => headers.get(name) : (name) => headers?.[name] ?? headers?.[String(name).toLowerCase()];
     const token = get(TOKEN_HEADER) || get('x-public-access-token') || get('public_access_token');
@@ -544,7 +561,7 @@
             } else {
               void clone.text().then((text) => {
                 recordChunk(stream, text.length);
-                scanText(text.slice(0, 200000), 'fetch.body', url);
+                scanResponseBody(text, 'fetch.body', url);
                 finishStream(stream);
               }).catch(() => {});
             }
@@ -574,7 +591,7 @@
           const token = this.getResponseHeader?.(TOKEN_HEADER) || this.getResponseHeader?.('x-public-access-token');
           if (token) pushToken(token, this.__ampUrl, { via: 'xhr-header' });
           const type = String(this.getResponseHeader?.('content-type') || '');
-          if (/json|text/i.test(type) && typeof this.responseText === 'string') scanText(this.responseText.slice(0, 200000), 'xhr.response', this.__ampUrl);
+          if (/json|text/i.test(type) && typeof this.responseText === 'string') scanResponseBody(this.responseText, 'xhr.response', this.__ampUrl);
         } catch { /* ignore */ }
       });
     } catch { /* ignore */ }
@@ -736,7 +753,7 @@
         .then((text) => {
           if (!text) return;
           scanStats.body += 1;
-          scanText(text.slice(0, 200000), 'active.body', target.url);
+          scanResponseBody(text, 'active.body', target.url);
           reportStats();
         })
         .catch(() => { /* 取不到就算了，被动通道不受影响 */ });

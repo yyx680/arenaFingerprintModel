@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* 打包扩展为可安装的 zip：dist/Arena-Model-Probe-<version>.zip（文件平铺在根，解开即可「加载已解压的扩展程序」）。
+/* 打包扩展为可安装的 zip：dist/Vodka-Arena-Model-<version>[-Buster].zip（文件平铺在根，解开即可「加载已解压的扩展程序」）。
 
    为什么要有这个脚本（而不是手敲 zip 命令）：
    **运行时依赖必须自动发现，不能手写清单**。旧包（2.9.25）就是手写的，漏了
@@ -101,7 +101,7 @@ if (unreferenced.length) {
 }
 
 let totalRaw = 0;
-console.log(`Arena Model Probe ${VERSION} — 运行时依赖 ${ordered.length} 个文件`);
+console.log(`${manifest.name} ${VERSION}${embedsBuster ? ' + Buster' : ''} — 运行时依赖 ${ordered.length} 个文件`);
 for (const name of ordered) {
   const size = statSync(abs(name)).size;
   totalRaw += size;
@@ -212,7 +212,7 @@ const zip = buildZip(entries, buildDate);
 /* OUT_DIR 相对项目根解析；绝对路径也接受（交给 path.resolve 处理 Windows 盘符/分隔符）。 */
 const OUT_DIR_URL = pathToFileURL(resolve(fileURLToPath(ROOT), OUT_DIR) + sep);
 mkdirSync(OUT_DIR_URL, {recursive: true});
-const zipName = `Arena-Model-Probe-${VERSION}.zip`;
+const zipName = `Vodka-Arena-Model-${VERSION}${embedsBuster ? '-Buster' : ''}.zip`;
 const zipUrl = new URL(zipName, OUT_DIR_URL);
 writeFileSync(zipUrl, zip);
 

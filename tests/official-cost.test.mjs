@@ -317,25 +317,32 @@ test('observedCostActual：官方 session 优先（via official-cost/session）'
   resetOfficial(bg.cleanOfficialCost(COST_MESSAGE));
   const got = bg.observedCostActual();
   assert.equal(got.via, 'official-cost/session');
-  assert.ok(Math.abs(got.usd - 0.004122368) < 1e-12, '用 session.actualTotalUsd（上游口径）');
+  assert.ok(Math.abs(got.usd - 0.0016937324) < 1e-12, '按公开单价比较必须用 aggregate.basePriceUsd');
   assert.ok(Math.abs(got.detail.base_usd - 0.0016937324) < 1e-12, 'detail.base 来自 aggregate');
+  assert.ok(Math.abs(got.detail.actual_usd - 0.004122368) < 1e-12, 'actualTotalUsd 保留为上游 actual');
   assert.ok(Math.abs(got.detail.credits - 3.3874648) < 1e-9);
   assert.equal(got.detail.multiplier, 2);
 });
 
 test('observedCostActual：session 无值时回退逐条求和（via official-cost/messages）', () => {
-  resetOfficial({session: {}, messages: {a: {totalCostUsd: 0.001}, b: {totalCostUsd: 0.002}, c: {}}});
+  resetOfficial({session: {}, messages: {a: {basePriceUsd: 0.0004, totalCostUsd: 0.001}, b: {basePriceUsd: 0.0006, totalCostUsd: 0.002}, c: {}}});
   const got = bg.observedCostActual();
   assert.equal(got.via, 'official-cost/messages');
-  assert.equal(got.usd, 0.003);
+  assert.equal(got.usd, 0.001, '逐条只合计 explicit base，不合计 upstream totalCostUsd');
 });
 
-test('observedCostActual：官方不在位时仍走旧的 cost-route 通道', () => {
+test('observedCostActual：仅有上游 actual 的 cost-route 不参与公开单价比较', () => {
   resetOfficial(null);
   bg.netState.costRouteSignals = [{session: {actualTotalUsd: 1.5, chargedTotalUsd: 3}, messages: [{message_id: 'm', actual_usd: 1.5}]}];
+  assert.equal(bg.observedCostActual(), null, 'actualTotalUsd / actual_usd 都不是 explicit Arena base');
+});
+
+test('observedCostActual：官方不在位时 cost-route 优先取 aggregate.base 与逐条 base', () => {
+  resetOfficial(null);
+  bg.netState.costRouteSignals = [{session: {actualTotalUsd: 1.5, chargedTotalUsd: 3, aggregate: {basePriceUsd: 0.75}}, messages: [{message_id: 'm', base_usd: 0.5, actual_usd: 1.5}]}];
   const got = bg.observedCostActual();
   assert.equal(got.via, 'cost-route/session');
-  assert.equal(got.usd, 1.5);
+  assert.equal(got.usd, 0.75);
   resetOfficial(null);
   assert.equal(bg.observedCostActual(), null, '什么都没有 → null，绝不编');
 });

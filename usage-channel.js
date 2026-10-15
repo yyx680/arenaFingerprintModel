@@ -17,6 +17,10 @@
 
    铁律：纯函数 + 只读，不发请求、不写存储、不改动指纹评分结果。 */
 
+import './token-estimator.js';
+const tokenEstimator = globalThis.ArenaTokenEstimator;
+export const normalizeEstimateBucket = tokenEstimator.normalize;
+
 export const USAGE_SCHEMA = 'arena-message-usage';
 
 /** Arena 归一化用量里出现过的数值字段（camelCase，实测）。 */
@@ -242,45 +246,19 @@ export function latestUsage(signals) {
 
    铁律不变：纯函数、只读、不发请求。这里算出来的**一律标 estimate**，绝不冒充服务端数字。 */
 
-export const ESTIMATE_METHOD = 'chars-v1';
-
-/** 字形系数：CJK ≈ 1 token/字，其余（拉丁/数字/空白/标点）≈ 0.27 token/字符
-    （主流 BPE 分词经验值：英文 ~4 字符/token，中文 ~1 字/token）。
-    误差量级：纯英文段落约 ±5%，中英混排更大。这是估算口径，不是实测值。 */
+export const ESTIMATE_METHOD = 'chars-v2';
+// 保留旧计数的兼容系数；v2 使用共享分段特征，不承诺固定误差率。
 export const ESTIMATE_RATES = Object.freeze({cjk_tokens_per_char: 1, other_tokens_per_char: 0.27});
-
-/** CJK / 全角码点范围（含扩展 B 区）。 */
-function isCjkCodePoint(cp) {
-  return (cp >= 0x2e80 && cp <= 0x9fff) || (cp >= 0xf900 && cp <= 0xfaff)
-    || (cp >= 0xff00 && cp <= 0xff60) || (cp >= 0x1f200 && cp <= 0x1f2ff)
-    || (cp >= 0x20000 && cp <= 0x2ffff);
-}
-
-/** 字符分类计数（码点口径，代理对算一个字符）。 */
-export function countChars(text) {
-  const source = typeof text === 'string' ? text : '';
-  let cjk = 0;
-  let other = 0;
-  for (const ch of source) {
-    if (isCjkCodePoint(ch.codePointAt(0))) cjk += 1;
-    else other += 1;
-  }
-  return {chars: cjk + other, cjk, other};
-}
-
-/** 字符统计 → token 估算（四舍五入）。 */
+export const countChars = tokenEstimator.count;
 export function estimateTokensFromChars(stats) {
-  if (!stats || typeof stats !== 'object') return 0;
-  const value = (stats.cjk || 0) * ESTIMATE_RATES.cjk_tokens_per_char
-    + (stats.other || 0) * ESTIMATE_RATES.other_tokens_per_char;
-  return value > 0 ? Math.round(value) : 0;
+  return tokenEstimator.estimate(stats).tokens;
 }
 
 /** 一条消息的生成文字统计：正文（text part）与思考（reasoning part）分开算。 */
 export function messageTextStats(message) {
   const parts = Array.isArray(message?.parts) ? message.parts : [];
-  const text = {chars: 0, cjk: 0, other: 0};
-  const reasoning = {chars: 0, cjk: 0, other: 0};
+  const text = tokenEstimator.empty();
+  const reasoning = tokenEstimator.empty();
   let skipped_parts = 0;
   for (const part of parts) {
     if (!part || typeof part !== 'object') continue;
@@ -290,7 +268,7 @@ export function messageTextStats(message) {
       continue;
     }
     const counted = countChars(typeof part.text === 'string' ? part.text : '');
-    bucket.chars += counted.chars; bucket.cjk += counted.cjk; bucket.other += counted.other;
+    tokenEstimator.add(bucket, counted);
   }
   return {text, reasoning, skipped_parts};
 }
@@ -299,24 +277,35 @@ export function messageTextStats(message) {
     reasoningTokens 是其中 thinking 的部分（已含在 outputTokens 里，不重复计）。 */
 export function estimateUsageFromStats(stats) {
   if (!stats || typeof stats !== 'object') return null;
-  const textTokens = estimateTokensFromChars(stats.text);
-  const reasoningTokens = estimateTokensFromChars(stats.reasoning);
+  const textEstimate = tokenEstimator.estimate(stats.text);
+  const reasoningEstimate = tokenEstimator.estimate(stats.reasoning);
+  const textTokens = textEstimate.tokens;
+  const reasoningTokens = reasoningEstimate.tokens;
   const outputTokens = textTokens + reasoningTokens;
   if (!(outputTokens > 0)) return null;
+  const methods = [...new Set([textEstimate, reasoningEstimate].filter(item => item.tokens > 0).map(item => item.method))];
+  const method = methods.length === 1 ? methods[0] : 'chars-v2+legacy';
   return {
     usage: {
       schema: USAGE_SCHEMA,
       type: 'language_model',
-      usage_source: ESTIMATE_METHOD,
+      usage_source: method,
       outputTokens,
       reasoningTokens,
       totalTokens: outputTokens,
     },
     estimate: {
-      method: ESTIMATE_METHOD,
+      method,
       chars: {text: stats.text?.chars || 0, reasoning: stats.reasoning?.chars || 0},
       output_is_estimate: true,
-      note: '转录字数估算（正文+thinking）：CJK ≈1 token/字、其余 ≈0.27 token/字符；非服务端数字。',
+      output_range: {low: textEstimate.low + reasoningEstimate.low, high: textEstimate.high + reasoningEstimate.high},
+      text_tokens: textTokens,
+      visible_reasoning_tokens: reasoningTokens,
+      skipped_parts: Math.max(0, Number(stats.skipped_parts) || 0),
+      range_kind: 'heuristic-sensitivity',
+      calibrated: false,
+      coverage: 'visible-text-only',
+      note: `${method} 分类型启发式估算；数字组、英文词段、标点/空白、CJK 与其他 Unicode 分开处理。参考范围未校准，不是置信区间或计费总量上下界；不含完整输入上下文、缓存、工具内容及未公开的推理。旧计数缺少特征时保留 v1 回退。`,
     },
   };
 }
