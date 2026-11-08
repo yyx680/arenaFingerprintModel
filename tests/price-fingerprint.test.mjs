@@ -66,7 +66,7 @@ function makeBgApi(probeBank = null, {cacheRates = null, pricing = null, openRou
         set: async () => {}, remove: async () => {},
       }},
     },
-    createBalanceReader: () => ({}),
+    registerRecaptchaAnchor: () => {}, createBalanceReader: () => ({}),
     fetch: fetchImpl,
     ...ledgerMod, ...priceMod, ...pricingMod, ...usageMod,
     identifyPrepared: () => ({}), prepareOutputs: () => ({}),
@@ -80,7 +80,7 @@ function makeBgApi(probeBank = null, {cacheRates = null, pricing = null, openRou
   };
   const ctx = vm.createContext(sandbox);
   vm.runInContext(read('background.js').replace(/^import .*;\r?\n/gm, '')
-    + '\nglobalThis.api={priceFingerprintBlock, costReverseBlock, netState, loadPricingTable};', ctx);
+    + '\nglobalThis.api={priceFingerprintBlock, costReverseBlock, netState, loadPricingTable, hardFamily, agentPriceOutputHint};', ctx);
   return ctx.api;
 }
 
@@ -1124,5 +1124,153 @@ test('打包闭包：tools/package.mjs 能发现 cache 与 Battle 实测费率�
   assert.match(out, /arena-cache-rates\.json/, '补充表在运行时依赖清单里');
   assert.match(out, /arena-battle-price-rates\.json/, 'Battle 实测费率表在运行时依赖清单里');
   assert.match(out, /✅ 依赖完整/, '依赖完整校验通过');
+});
+
+function agentSidecarFixture(rate = 10) {
+  const profiles = [
+    {model_key: 'gpt-6-luna-max', display: 'Luna', input_usd_per_mtok: 0.1, output_usd_per_mtok: 0.5},
+    {model_key: 'claude-sonnet-5-5-xhigh', display: 'Sonnet', input_usd_per_mtok: 2, output_usd_per_mtok: 10},
+  ];
+  const bg = makeBgApi(null, {pricing: {source: 'live', rows: profiles},
+    battleRates: {schema: 'arena-battle-price-rates-v1', rows: profiles}});
+  resetBg(bg);
+  const counter = globalThis.ArenaTokenEstimator, chars = counter.count('cedar '.repeat(96).trim());
+  const outputTokens = Math.ceil(counter.estimate(chars).tokens / 20) * 20;
+  const inputTokensCostUsd = 0.0002, outputTokensCostUsd = outputTokens * rate / 1e6;
+  const totalCostUsd = inputTokensCostUsd + outputTokensCostUsd;
+  const priceProbeId = '11472f9c-7e1a-4a1a-9f9a-2a5136e5b641';
+  bg.netState.agentPriceOutputs = [{message_id: 'current', price_probe_id: priceProbeId, chars, unobserved_parts: 0}];
+  const options = {fullBank: true, pageUrl: 'https://arena.ai/agent/session', priceProbeId,
+    costPayload: {messages: {current: {basePriceUsd: totalCostUsd, actual: {
+      inputTokensCostUsd, outputTokensCostUsd, cacheWriteTokensCostUsd: 0,
+      cacheReadTokensCostUsd: 0, totalCostUsd,
+    }}}}};
+  return {bg, options};
+}
+
+for (const [rate, model] of [[10, 'claude-sonnet-5-5-xhigh'], [0.5, 'gpt-6-luna-max']]) {
+  test(`Agent 可选旁证：20 倍费率两端正确排序，但不升级为精确识别（${model}）`, async () => {
+    const {bg, options} = agentSidecarFixture(rate);
+    const fp = await bg.priceFingerprintBlock([], options);
+    assert.equal(fp.agent_price_hint.ranked[0].model_key, model);
+    assert.equal(fp.agent_price_hint.can_suggest, true);
+    assert.equal(fp.agent_price_hint.calibrated, false);
+    assert.equal(fp.agent_price_hint.exact_usage, false);
+    assert.equal(fp.separable, false);
+    assert.equal(fp.hard_filter.candidates.length, 2, '原硬候选不被旁证删改');
+  });
+}
+
+test('Agent 可选旁证：本轮关联缺失时原候选与原返回照常存在，不设前置门槛', async () => {
+  const {bg, options} = agentSidecarFixture();
+  const original = await bg.priceFingerprintBlock([], {...options, priceProbeId: null});
+  bg.netState.agentPriceOutputs[0].price_probe_id = '31472f9c-7e1a-4a1a-9f9a-2a5136e5b641';
+  const fp = await bg.priceFingerprintBlock([], options);
+  assert.equal(fp.agent_price_hint.can_suggest, false);
+  assert.equal(fp.agent_price_hint.n_pairs, 0, '旧探针证据不能借用');
+  assert.equal(fp.text, original.text);
+  assert.deepEqual(Array.from(fp.hard_filter.candidates, item => item.model_key),
+    Array.from(original.hard_filter.candidates, item => item.model_key));
+});
+
+test('Agent 可选旁证：缺本消息费用或工具部分未覆盖，只展示，原流程继续', async () => {
+  const {bg, options} = agentSidecarFixture();
+  bg.netState.agentPriceOutputs[0].unobserved_parts = 1;
+  const partial = await bg.priceFingerprintBlock([], options);
+  assert.equal(partial.agent_price_hint.can_suggest, false);
+  assert.equal(partial.hard_filter.candidates.length, 2);
+  bg.netState.agentPriceOutputs[0].message_id = 'not-billed-yet';
+  const pending = await bg.priceFingerprintBlock([], options);
+  assert.equal(pending.agent_price_hint.can_suggest, false);
+  assert.equal(pending.hard_filter.candidates.length, 2, '费用未对齐只停旁证，不停原识别');
+});
+
+test('Agent 可选旁证：内部异常隔离，不能吞掉原返回或硬筛选候选', async () => {
+  const {bg, options} = agentSidecarFixture();
+  Object.defineProperty(bg.netState.agentPriceOutputs[0], 'chars', {get() { throw new Error('broken optional sample'); }});
+  const fp = await bg.priceFingerprintBlock([], options);
+  assert.equal(fp.agent_price_hint, null);
+  assert.equal(fp.hard_filter.candidates.length, 2);
+  assert.ok(fp.rate_family?.models?.length);
+});
+
+test('Agent 可选采集：工具参数计入输出参考，工具返回绝不当作模型输出', () => {
+  const source = read('network-sniffer.js');
+  const start = source.indexOf('  const agentPriceSeen = new Set();');
+  const end = source.indexOf('  function scanTranscriptEstimate(', start);
+  const counter = globalThis.ArenaTokenEstimator;
+  const ctx = vm.createContext({tokenEstimator: counter, charBuckets: text => counter.count(text), evidence: [], schedule() {}});
+  vm.runInContext(source.slice(start, end), ctx);
+  const args = {command: 'echo 17*19'};
+  ctx.emitAgentPriceOutput({id: 'one', parts: [{type: 'tool-Bash', input: args, output: 'UNCOUNTED_RESULT '.repeat(200)}]},
+    '11472f9c-7e1a-4a1a-9f9a-2a5136e5b641', '/api/chat/current');
+  assert.equal(ctx.evidence.length, 1);
+  assert.equal(ctx.evidence[0].chars.chars, JSON.stringify(args).length);
+  assert.equal(ctx.evidence[0].unobserved_parts, 0);
+});
+
+function incompleteGeminiFixture() {
+  const bg = makeBgApi();resetBg(bg);
+  const table = pricingMod.normalizePricingTable({schema: 'arena-model-pricing', rows: [
+    {model_key: 'claude-sonnet-5-5-xhigh', input_usd_per_mtok: 2, output_usd_per_mtok: 10, cache_read_usd_per_mtok: 0.1},
+    {model_key: 'gemini-3.7-flash', input_usd_per_mtok: 0.75, output_usd_per_mtok: 3.75},
+  ]});
+  const costPayload = {messages: {current: {basePriceUsd: 0.016523, actual: {
+    inputTokensCostUsd: 0.013902, outputTokensCostUsd: 0.001950, cacheWriteTokensCostUsd: 0,
+    cacheReadTokensCostUsd: 0.000671, totalCostUsd: 0.016523,
+  }}}};
+  return {bg, table, costPayload};
+}
+
+test('缺价未排除：Gemini 缓存读未知时必须返回名字和缺项，不仅返回一个数量', async () => {
+  const {bg, table, costPayload} = incompleteGeminiFixture();
+  const {hard, hardOut} = await bg.hardFamily(table, [], costPayload);
+  assert.equal(hard.candidates.length, 1);
+  assert.equal(hardOut.partial, 1);
+  assert.equal(hardOut.partial_candidates[0].model_key, 'gemini-3.7-flash');
+  assert.equal(hardOut.partial_candidates[0].rates_complete, false);
+  assert.equal(hardOut.partial_candidates[0].missing_rates[0], 'R');
+  assert.equal(hardOut.partial_candidates[0].counts.O, 520);
+});
+
+test('缺价未排除：已知输出单价可参与旁证，不可因缓存价未知而强行只选 Claude', async () => {
+  const {bg, table, costPayload} = incompleteGeminiFixture();
+  const {hard} = await bg.hardFamily(table, [], costPayload);
+  const priceProbeId = '11472f9c-7e1a-4a1a-9f9a-2a5136e5b641';
+  bg.netState.agentPriceOutputs = [{message_id: 'current', price_probe_id: priceProbeId,
+    chars: {chars: 1926, cjk: 0, other: 1926}, unobserved_parts: 0}];
+  const hint = bg.agentPriceOutputHint(table, hard, {priceProbeId, costPayload});
+  assert.equal(hint.ranked[0].model_key, 'gemini-3.7-flash');
+  assert.equal(hint.ranked[0].rates_complete, false);
+  assert.equal(hint.ranked[0].missing_rates[0], 'R');
+  assert.equal(hint.can_suggest, true);
+  assert.equal(hint.separable, false);
+  assert.equal(hard.candidates[0].model_key, 'claude-sonnet-5-5-xhigh', '原硬筛选池不被修改');
+});
+
+test('Battle 训练集联动：裸模型名与官方 -agent/代号 变体互通缓存费率且不重复拆散唯一解', async () => {
+  const bg = makeBgApi(null, {cacheRates: 'real', openRouter: 'real', battleRates: 'real'});
+  const table = await bg.loadPricingTable();
+  /* claude-opus-5.5-agent (官方) 与 claude-opus-5.5-high (Battle) 归并后具备完整四项费率。 */
+  const opus = table.profile('claude-opus-5.5-agent');
+  assert.ok(opus, 'claude-opus-5.5-agent 存在');
+  assert.equal(opus.arena_battle_observed, true, 'Battle 实测标记已挂接');
+  assert.equal(opus.cache_read_usd_per_mtok, 0.5, '保留缓存读费率');
+  assert.equal(opus.cache_write_usd_per_mtok, 6.25, '保留缓存写费率');
+  /* andwise-evfd-agent (deepseek-v4-flash-vision-exp) 在合并 Battle 后采用实测单价 0.098/0.392/0.00686。 */
+  const dsFlash = table.profile('andwise-evfd-agent');
+  assert.equal(dsFlash.input_usd_per_mtok, 0.098);
+  assert.equal(dsFlash.output_usd_per_mtok, 0.392);
+  assert.equal(dsFlash.cache_read_usd_per_mtok, 0.00686);
+});
+
+test('Agent 旁证：短回复（如 OK 323）也能触发 can_suggest 排序', () => {
+  const {bg, table, costPayload} = incompleteGeminiFixture();
+  const hard = pricingMod.hardFilterByCosts(pricingMod.normalizeCostBreakdown(costPayload.messages.current), table);
+  const priceProbeId = '11472f9c-7e1a-4a1a-9f9a-2a5136e5b641';
+  bg.netState.agentPriceOutputs = [{message_id: 'current', price_probe_id: priceProbeId,
+    chars: {chars: 6, cjk: 0, other: 6}, reasoning_chars: 0, unobserved_parts: 0}];
+  const hint = bg.agentPriceOutputHint(table, hard, {priceProbeId, costPayload});
+  assert.equal(hint.can_suggest, true, '短回复探针不再被 48 字符硬门槛卡死');
 });
 

@@ -74,7 +74,7 @@ while (queue.length) {
 
 /* 1c. 第三方许可 —— `modeltrace-bank.json` / `modeltrace-core.js` 是 MIT 第三方文件
    （见 THIRD_PARTY_NOTICES.md），分发时必须随附许可原文。 */
-const LICENSE_FILES = ['THIRD_PARTY_NOTICES.md', 'LICENSE-ModelTrace', 'LICENSE', 'README_BUSTER.md'];
+const LICENSE_FILES = ['THIRD_PARTY_NOTICES.md', 'LICENSE-ModelTrace', 'LICENSE-LMFPD', 'LICENSE', 'README_BUSTER.md'];
 if (busterCatalog) for (const name of busterCatalog.correspondingSource || []) {
   if (!(name.startsWith('vendor/buster/') || name === 'tools/integrate-buster.mjs') || name.split('/').includes('..')) throw Error('Invalid Buster source asset: ' + name);
   add(name);

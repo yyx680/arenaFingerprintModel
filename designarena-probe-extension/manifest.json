@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "DesignArena 探针",
+  "version": "1.1.0",
+  "description": "捕获即触发:在 designarena.ai 上自动捕获登录 Bearer 与 Agent 运行 token,并自动反查每个 agent 的真实模型身份。全部数据仅存本地。",
+  "permissions": ["webRequest", "storage"],
+  "host_permissions": [
+    "https://www.designarena.ai/*",
+    "https://designarena.ai/*",
+    "https://api.trigger.dev/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "DesignArena 探针"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.designarena.ai/*", "https://designarena.ai/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["page-hook.js"],
+      "matches": ["https://www.designarena.ai/*", "https://designarena.ai/*"]
+    }
+  ]
+}

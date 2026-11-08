@@ -1,4 +1,4 @@
-# Arena Model Probe 2.19.10　·　由 Vodka 制作
+# Arena Model Probe 2.19.11　·　由 Vodka 制作
 
 独立的 Chrome / Edge Manifest V3 扩展，不依赖 Arena Trace Inspector、Trigger.dev trace 或旧部署 Cookie。它用数字指纹识别 Arena Agent 当前会话背后的模型：可以单轮探测，也可以连续自动抽卡；同时显示 Arena 每日额度剩余。
 
@@ -295,6 +295,14 @@ rows : #1 01a12ca2 role=assistant tokens=7936 est.input_lower=421
 
 扩展此前只匹配 `https://arena.ai/*`，导致在 **`canary.arena.ai`（预发布域，登录态/新功能常先在那边）上完全不注入**。2.15.0 起 manifest、后台来源校验（`isAgentUrl`）、`content.js` 的 `agentPage()`、`popup.js`、`conversation-rename.js` 全部改为接受 `https://arena.ai` 与 `https://canary.arena.ai` 两个 origin（统一用 `/^https:\/\/(?:canary\.)?arena\.ai$/`）。**这是一次权限扩张**：扩展现在也会在 canary 域注入。
 
+## lmfpd 对照通道（v2.19.11 新增）
+
+把主指纹判定有效的**同一批回复**再喂给 [Fingerpoint Detector](https://lm.ikale.io)（lmfpd，`shared-detector-v2` 排名器，参考库 66 个模型，覆盖 GPT/Claude/Gemini/Grok/Qwen/DeepSeek/GLM/Kimi 等最新型号），在「数字指纹」面板的来源行追加第二意见：
+
+- 显示 lmfpd 的预测名、库内校准概率与判定（`scored` / `partial` / `unscorable` / `not_model`），以及它与主指纹最近候选的一致性（`lmfpd 一致` / `lmfpd 同族` / `lmfpd 不一致`）。
+- **纯对照展示**：不参与 `status`、候选集、改名任何判定；lmfpd 自身的置信度是参考库内闭集概率，不是身份证明。
+- 参考数据随包内置在 `lmfpd-data/`（`unified_bank.json` + `shared_detector.bin`，约 4.8MB），运行时不联网；`node tools/fetch-lmfpd-data.mjs` 可重新拉取上游最新库并校验 sha256。加载或评分失败静默降级为不显示。
+
 ## 回复结束与自动重命名
 
 - 每条数字回复结束后，扩展会识别可见的“此任务成功了吗？”反馈区域；它兼容真正的 `dialog` / `alertdialog`，也兼容 Arena 当前使用的普通页面卡片。扩展只点击与该问题位于同一 UI 区域、且可访问名称或文本匹配“继续工作”的唯一控件；问题存在但按钮不明确时停止后续探针。
@@ -343,6 +351,7 @@ rows : #1 01a12ca2 role=assistant tokens=7936 est.input_lower=421
 
 - 首选读取固定的 WhatsMyLLM `v2026.09.5` 21 模型数据文件并校验 SHA-256。
 - 网络或完整性检查失败时，使用扩展内置的 ModelTrace `d4131b3` MIT 17 模型后备库。
+- lmfpd 对照通道的参考库（`lmfpd-data/`）随包内置、不联网；回复只在本机后台评分，不上传。
 - 远程请求只下载指纹 JSON，不上传回复、数字、Cookie、凭据或 referrer。
 - 价格表 `arena-cost-table.json` 随包内置、**不联网**；成本信号只从页面自身响应里只读抽取字段名与数值，不落地正文。
 - 内容脚本只把提取后的数字数组发给扩展后台，不发送完整聊天正文。
@@ -372,4 +381,4 @@ npm test
 
 ## 第三方来源
 
-ModelTrace 评分核心、提示、内置后备库和测试样本来自 xqy2006/ModelTrace，MIT 许可。额度端点（`/api/me/pulse`）的字段语义与错误处理参考本机 Arena Trace Inspector 2.3.2 的 `billing.js`。详见 `LICENSE-ModelTrace` 与 `THIRD_PARTY_NOTICES.md`。
+ModelTrace 评分核心、提示、内置后备库和测试样本来自 xqy2006/ModelTrace，MIT 许可。lmfpd 对照通道的评分核移植自 `lmfpd-sdk@0.2.0`（Ikaleio/lm-detector），MIT 许可，见 `LICENSE-LMFPD`。额度端点（`/api/me/pulse`）的字段语义与错误处理参考本机 Arena Trace Inspector 2.3.2 的 `billing.js`。详见 `LICENSE-ModelTrace`、`LICENSE-LMFPD` 与 `THIRD_PARTY_NOTICES.md`。

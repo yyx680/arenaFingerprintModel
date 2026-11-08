@@ -227,16 +227,52 @@
   function charBuckets(text) {
     return tokenEstimator.count(text);
   }
+  /* Optional Agent price evidence is separate from the existing transcript/ledger channel. */
+  const agentPriceSeen = new Set();
+  function emitAgentPriceOutput(message, probeId, url) {
+    if (typeof message.id !== 'string') return;
+    const chars = tokenEstimator.empty();let unobserved = 0, reasoningChars = 0;
+    for (const part of Array.isArray(message.parts) ? message.parts : []) {
+      if (!part || typeof part !== 'object') continue;
+      if ((part.type === 'text' || part.type === 'reasoning') && typeof part.text === 'string') {
+        const counted = charBuckets(part.text);
+        tokenEstimator.add(chars, counted);
+        if (part.type === 'reasoning') reasoningChars += counted.chars || 0;
+      } else if (part.type !== 'step-start' && part.type !== 'step-finish') {
+        const args = part.input ?? part.args ?? part.toolInvocation?.args;
+        if (/^(?:tool-|dynamic-tool$)/.test(String(part.type)) && args != null) {
+          const text = typeof args === 'string' ? args : JSON.stringify(args);
+          if (typeof text === 'string' && text.length <= 100000) tokenEstimator.add(chars, charBuckets(text));
+          else unobserved++;
+        } else unobserved++;
+      }
+    }
+    if (!chars.chars) return;
+    const key = `${probeId}|${message.id}|${JSON.stringify(chars)}|${unobserved}`;
+    if (agentPriceSeen.has(key)) return;
+    agentPriceSeen.add(key);
+    if (agentPriceSeen.size > 240) agentPriceSeen.delete(agentPriceSeen.values().next().value);
+    evidence.push({kind: 'agent-price-output', message_id: message.id.slice(0, 64),
+      price_probe_id: probeId, chars, reasoning_chars: reasoningChars, unobserved_parts: unobserved, url: String(url).slice(0, 200)});
+    schedule();
+  }
   function scanTranscriptEstimate(messages, url) {
     let count = 0;
     /* v2.15.0：把用户消息的正文统计留住，配给紧随其后的 assistant 回复，作为**输入下界**
        （只含用户文字，不含历史上下文与系统提示）。一条 user 可对应多步 assistant，所以不重置。 */
-    let lastUser = null;
+    let lastUser = null, priceProbeId = null;
     for (const message of messages) {
       if (count >= 60) break;
       if (!message || typeof message !== 'object') continue;
       const parts = Array.isArray(message.parts) ? message.parts : [];
       if (message.role === 'user') {
+        priceProbeId = null;
+        if (/\/api\/chat\//.test(String(url))) {
+          for (const part of parts) {
+            const match = typeof part?.text === 'string' && part.text.match(/检测序号 \d+，标识 ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})。不要复述序号和标识。/i);
+            if (match) { priceProbeId = match[1];break; }
+          }
+        }
         const bucket = tokenEstimator.empty();
         for (const part of parts) {
           if (!part || typeof part !== 'object' || part.type !== 'text' || typeof part.text !== 'string') continue;
@@ -259,6 +295,9 @@
         }
         const counted = charBuckets(part.text);
         tokenEstimator.add(bucket, counted);
+      }
+      if (priceProbeId) {
+        try { emitAgentPriceOutput(message, priceProbeId, url); } catch { /* auxiliary failure never blocks the original collector */ }
       }
       if (!text.chars && !reasoning.chars) continue;
       const messageId = typeof message.id === 'string' ? message.id.slice(0, 64) : null;
@@ -491,7 +530,7 @@
     if (evidence.length > MAX_EVIDENCE) evidence.splice(0, evidence.length - MAX_EVIDENCE);
     schedule();
     /* v2.15.0：一次流结束往往意味着新回复已落库 —— 顺势补取一次转录（见文末主动取转录）。 */
-    if (activeTarget()) scheduleActiveFetch(2000);
+    if (activeTarget()) scheduleActiveFetch(300);
   }
 
   const runIdOf = (url) => (String(url || '').match(/\brun_[A-Za-z0-9]{6,60}\b/) || [null])[0];
@@ -725,21 +764,21 @@
      所以这里在页面上下文主动取一次 —— 页面自己就是这么取的，同源、只读、不改任何东西，
      取回后交给与被动路径**完全相同**的 scanText 解析：有 usage 用 usage，没有就按字数估 token。
      触发点：初始加载、SPA 路由变化、实时流结束（新回复落库后）。节流 2.5 s、每页上限 60 次。 */
-  const ACTIVE_ROUTE_RE = /^\/(agent|battle)\/([0-9a-fA-F][0-9a-fA-F-]{7,})/;
+  const ACTIVE_ROUTE_RE = /^\/(agent|work|battle|c)\/([0-9a-fA-F][0-9a-fA-F-]{7,})/; // v2.19.10：补 /c/<id>
   const ACTIVE_MIN_GAP_MS = 2500;
   const ACTIVE_MAX_PER_PAGE = 60;
   const activeState = {sid: '', at: 0, count: 0, timer: null};
   function activeTarget() {
     const match = ACTIVE_ROUTE_RE.exec(location.pathname || '');
     if (!match) return null;
-    const prefix = match[1] === 'agent' ? 'chat' : 'evaluation';
+    const prefix = match[1] === 'battle' ? 'evaluation' : 'chat';
     return {sid: match[2], url: `/api/${prefix}/${match[2]}`};
   }
-  function activeFetchTranscript() {
+  function activeFetchTranscript(force = false) {
     const target = activeTarget();
     if (!target) return;
     const nowMs = Date.now();
-    if (target.sid === activeState.sid && nowMs - activeState.at < ACTIVE_MIN_GAP_MS) return;
+    if (!force && target.sid === activeState.sid && nowMs - activeState.at < ACTIVE_MIN_GAP_MS) return;
     if (activeState.count >= ACTIVE_MAX_PER_PAGE) return;
     activeState.sid = target.sid;
     activeState.at = nowMs;
@@ -766,6 +805,10 @@
   function watchRoute() {
     if (activeTarget()) scheduleActiveFetch(1500);
   }
+  window.addEventListener('message', (event) => {
+    if (event.source !== window || !event.data || event.data.source !== 'amp-content') return;
+    if (event.data.type === 'AMP_SYNC_TRANSCRIPT') activeFetchTranscript(true);
+  });
   try {
     for (const method of ['pushState', 'replaceState']) {
       const nativeHistory = history[method];

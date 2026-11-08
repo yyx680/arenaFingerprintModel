@@ -889,6 +889,20 @@
    "or_id": "google/gemini-2.5-flash-image",
    "consistent": true,
    "batch": false
+  },
+  "claude-opus-5.6-max": {
+   "cache_read_usd_per_mtok": 1,
+   "cache_write_usd_per_mtok": 12.5,
+   "or_id": "anthropic/claude-opus-5.6-max",
+   "consistent": true,
+   "batch": false
+  },
+  "hegel-ai83-agent": {
+   "cache_read_usd_per_mtok": 0.03,
+   "cache_write_usd_per_mtok": null,
+   "or_id": "deepseek/deepseek-v4.1",
+   "consistent": true,
+   "batch": false
   }
  }
 }

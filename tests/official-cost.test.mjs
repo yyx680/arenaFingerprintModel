@@ -91,7 +91,7 @@ function makeContentCtx(views, {clears = true, battle = false} = {}) {
     },
   };
   const fetch = makeFetch(views, jar);
-  const ctx = vm.createContext({document, fetch, battleMode: () => battle});
+  const ctx = vm.createContext({document, fetch, battleMode: () => battle, ARENA_API_PROBES: true});
   vm.runInContext(COOKIE_SNIPPET + '\nglobalThis.api={fetchCostPath, probeCostRoute, readPhOverride, writePhOverride, clearPhOverride, PH_OVERRIDE_KEY, PH_COST_SHOWN};', ctx);
   return {ctx, api: ctx.api, jar, fetch};
 }
@@ -235,7 +235,7 @@ function makeBgApi() {
         set: async () => {}, remove: async () => {},
       }},
     },
-    createBalanceReader: () => ({}),
+    registerRecaptchaAnchor: () => {}, createBalanceReader: () => ({}),
     fetch: async () => ({ok: false, status: 0, text: async () => '', json: async () => null}),
     ...ledgerMod, ...priceMod, ...pricingMod, ...usageMod,
     identifyPrepared: () => ({}), prepareOutputs: () => ({}),

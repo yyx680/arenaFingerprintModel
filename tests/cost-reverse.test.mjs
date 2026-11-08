@@ -146,7 +146,7 @@ function makeBgApi({bank = null} = {}) {
         set: async () => {}, remove: async () => {},
       }},
     },
-    createBalanceReader: () => ({}),
+    registerRecaptchaAnchor: () => {}, createBalanceReader: () => ({}),
     fetch: async () => ({ok: false, status: 0, text: async () => '', json: async () => null}),
     ...ledgerMod, ...priceMod, ...pricingMod, ...usageMod,
     identifyPrepared: () => ({}), prepareOutputs: () => ({}),

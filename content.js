@@ -64,7 +64,7 @@
      pos=null 表示用默认停靠（右下角）；一旦拖动过就转成 left/top 绝对定位。 */
   let pos=null,dragState=null;
   const POS_KEY='amp.hud.pos.v1';
-  let runOneButton,runAllButton,runPriceButton,stopButton,clearButton,progressNode,resultNode,resultModel,resultBadge,resultMetrics,resultBank,traceNode,compactText;
+  let runOneButton,runAllButton,runPriceButton,stopButton,clearButton,progressNode,resultNode,resultModel,resultBadge,resultMetrics,resultBank,resultLmfpd,traceNode,compactText;
   let drawInput,drawMode,drawMinPulse,drawBlockThinking,drawAutoTopUp,drawRenameAnyway,drawForceBest,drawSceneChannel,drawStartButton,drawStopButton,drawProgressNode,drawResultsNode,balanceNode,balanceNote,balanceButton,diagnoseButton,appendButton;
   /* v2.13.2 花费账本节点 */
   let ledgerBox,ledgerSummary,ledgerRatio,ledgerTable,ledgerNote,ledgerButton,ledgerToggle;
@@ -352,11 +352,20 @@
     }
     if(probe?.status!==200||probe.reason||costMessageCount(probe)===0){
       const detail=[probe?.status?`HTTP ${probe.status}`:'无响应',probe?.reason||'',probe?.status===200&&!probe?.reason?'messages 为空':''].filter(Boolean).join(' / ');
-      lastPriceFingerprint={separable:false,reason:'no-current-cost',text:`本会话账单尚未就绪（${detail}），价格识别未执行`};
-      return {fingerprint:lastPriceFingerprint,text:lastPriceFingerprint.text,label:null};
+      /* v2.19.10：403 Unauthorized 已不是「本扩展 cookie 没写对」。
+         2026-10-19 实测：同一账号 /api/me 返回 200（登录正常），但 /api/chat/<sid>/cost 对
+         ph-toolbar-overrides 的 m1 / m2 / m1+m2 三种取值**一律 403 Unauthorized**；
+         参考扩展 cost-browser-extension 用同一套覆写，现在同样失效 ⇒ Arena 把这个门禁
+         改成了**服务端账号维度**，客户端绕不过去。如实说明，别再让用户以为是插件坏了。 */
+      const gateClosed=probe?.status===403&&probe.reason==='unauthorized';
+      const text=gateClosed
+        ?'Arena 已关闭 /cost 的客户端放行：本账号登录正常（/api/me 200），但账单接口对 ph-toolbar-overrides 的 m1 / m2 / m1+m2 一律 403 Unauthorized —— 门禁改成服务端按账号灰度，客户端绕不过去。这不是本扩展的 bug（参考扩展用同一套做法，现在同样 403）。价格通道自动降级：只用可得的公开单价 + 指纹，不再有官方账单。'
+        :`本会话账单尚未就绪（${detail}），价格识别未执行`;
+      lastPriceFingerprint={separable:false,reason:'no-current-cost',gate_closed:gateClosed,text};
+      return {fingerprint:lastPriceFingerprint,text,label:null};
     }
     let fp=null;
-    try{fp=await chrome.runtime.sendMessage({type:'AMP_PRICE_FULL',costPayload:probe?.status===200&&!probe.reason?probe.payload:null});}catch{}
+    try{fp=await chrome.runtime.sendMessage({type:'AMP_PRICE_FULL',costPayload:probe?.status===200&&!probe.reason?probe.payload:null,priceProbeId:records.get(active)?.priceProbe?.id||null,agentHintWaitMs:records.get(active)?.priceProbe?.id?3000:0});}catch{}
     syncHudSession();if(epoch!==hudEpoch||active!==session())return {fingerprint:null,text:'会话已切换，丢弃旧结果',label:null};
     if(!fp||fp.error)return {fingerprint:null,text:fp?.error?`价格指纹: 查询失败（${fp.error}）`:'价格指纹: 未拿到结果',label:null};
     const text=fp.text||fp.note||'';
@@ -367,6 +376,12 @@
     if(!fp)return null;
     const conflicted=fp.evidence==='conflict'||fp.reason==='conflict';
     if(conflicted&&!prefs.forceBest)return null;
+    if(prefs.forceBest&&fp.separable!==true&&fp.exact_usage!==true&&fp.agent_price_hint?.can_suggest===true){
+      const item=fp.agent_price_hint.ranked?.[0];
+      if(item)return {label:item.label||item.model_key,id:item.model_key,kind:'agent-output-hint',price_source:item.price_source||null,
+        rates_complete:item.rates_complete,missing_rates:item.missing_rates||[],
+        note:`本轮同消息可见输出量级辅助首项，out $${item.output_usd_per_mtok}/Mtok；${item.rates_complete===false?'该项尚缺其他费率，未排除但非完整匹配；':''}隐藏推理未知、工具参数按文字估算、Agent 费率未校准，同档不分型号；仅用户强取代表，非确定识别`};
+    }
     const family=fp.rate_family?.models||[],hit=fp.hit;
     /* 后台忽略的软比值不能再进入标题/改名；同价族只能提供代表项，不能提供距离排序。 */
     if(family.length&&(!fp.separable||fp.soft_refuted)){
@@ -383,7 +398,11 @@
     if(!fp||!choice||fp.separable===true)return choice;
     const originalKind=choice.kind;
     const ambiguity=fp.evidence==='conflict'||fp.reason==='conflict'?'原始证据存在分歧':'原始证据仍有多个合法候选';
-    const forced={...choice,kind:'forced-best',forced:true,note:`用户已勾选“只取最接近”：按 Battle 实测 > Arena 官方 > OpenRouter 与当前${channel}贴合排序，强制定名为 ${choice.label}；${ambiguity}，并非证据自然唯一`};
+    const criterion=originalKind==='agent-output-hint'?'本轮同消息可见输出量级辅助（未校准；同档只取代表）':
+      fp.agent_price_hint&&['rate-family','hard-hint'].includes(originalKind)?'完整费率候选中的来源优先代表（不是距离排名）':`Battle 实测 > Arena 官方 > OpenRouter 与当前${channel}贴合排序`;
+    const missingNote=choice.rates_complete===false?'；所选项费率不全，未排除但非完整匹配':'';
+    const partialNote=fp.agent_price_hint&&fp.hard_filter?.partial?`；另有 ${fp.hard_filter.partial} 个缺价候选尚未排除`:'';
+    const forced={...choice,kind:'forced-best',forced:true,note:`用户已勾选“只取最接近”：按 ${criterion}，强制定名为 ${choice.label}；${ambiguity}，并非证据自然唯一${missingNote}${partialNote}`};
     fp.forced_best=true;
     fp.forced_choice={label:choice.label,model_key:choice.id,price_source:choice.price_source||null,original_kind:originalKind};
     fp.suggestion=forced;
@@ -462,26 +481,39 @@
     lastPriceFingerprint={separable:false,scope:'candidates',reason:'combined-ranking',evidence_label:'组合排序',hit:{...best.hit,label:choice.label},runner_up:runner?.hit||null,hard_filter:reverse?.hard_filter,rate_family:reverse?.rate_family,suggestion:choice,text:choice.note,note:'在数字候选中联合排序；缺失单价的模型不参与组合评分'};
     return prefs.forceBest?forceBestChoice(lastPriceFingerprint,choice,'组合'):choice;
   }
+  /* v2.19.11 lmfpd 改名权威：scored（三条已评分、带库内校准）时闭集首选直接作为改名目标；
+     partial（不足三条）只在主指纹非清晰时才顶位。只影响改名目标与最终标签，
+     record.recognition 仍如实反映各通道自身判断。 */
+  const lmfpdPickOf=result=>{
+    const lm=result?.lmfpd;
+    if(!lm?.prediction_name)return null;
+    const kind=lm.decision==='scored'?'scored':lm.decision==='partial'?'partial':null;
+    if(!kind||(kind==='partial'&&result?.status==='clear'))return null;
+    const agree=String(lm.agreement||'').replace(/^lmfpd /,'');
+    return {label:lm.prediction_name,id:lm.prediction||null,kind:'lmfpd',
+      note:`lmfpd ${kind==='scored'?'闭集首选':'部分样本倾向'}（66 模型库）${agree?` · ${agree}`:''}`};
+  };
   async function finishRecognition(active,record,mode,index=null){
     syncHudSession();const epoch=hudEpoch;
     const choice=await recognitionFor(active,record.result,mode);
     syncHudSession();if(epoch!==hudEpoch||active!==session())return {sessionId:active,label:'会话已切换',verdict:'旧结果已丢弃',status:'stale',renamed:false,renameNote:'会话已切换',fit:null,separation:null};
     const result=record.result;
     const numericOnly=mode!=='price'&&mode!=='combined';
+    const lmPick=lmfpdPickOf(result),renameChoice=lmPick||choice;
     record.recognition=numericOnly?null:{mode,label:choice?.label||null,id:choice?.id||null,forced:choice?.kind==='forced-best',note:choice?.note||'Arena 官方价目内没有可用候选'};
     const keepClassifierVerdict=numericOnly&&!choice;
     const fallbackLabel=keepClassifierVerdict?resultLabelOf(result):'暂无候选';
-    const verdict=choice?.note||(keepClassifierVerdict?verdictOf(result):'没有可用候选');
+    const verdict=(lmPick?.note||choice?.note)||(keepClassifierVerdict?verdictOf(result):'没有可用候选');
     let renamed=false,renameNote=prefs.renameAnyway?'无可用候选，未改名':'未勾选改名';
     const announce=(phase,text)=>index===null?publish(phase,text,record):publishDraw(phase,`第 ${index} 轮：${text}`);
-    if(choice?.label&&active&&prefs.renameAnyway&&!cancelled){
-      announce('renaming',`按${choice.kind==='forced-best'?'用户强制最优':choice.kind==='rate-family'?'同价组代表项':choice.kind==='hard-hint'?'费率旁证候选':'最接近候选'}重命名为 ${choice.label}…`);
+    if(renameChoice?.label&&active&&prefs.renameAnyway&&!cancelled){
+      announce('renaming',`按${renameChoice.kind==='lmfpd'?'lmfpd 闭集首选':renameChoice.kind==='forced-best'?'用户强制最优':renameChoice.kind==='rate-family'?'同价组代表项':renameChoice.kind==='hard-hint'?'费率旁证候选':'最接近候选'}重命名为 ${renameChoice.label}…`);
       try{
-        const done=await globalThis.ArenaProbeRename.rename({sessionId:active,title:choice.label,isCurrent:()=>!cancelled&&session()===active});
+        const done=await globalThis.ArenaProbeRename.rename({sessionId:active,title:renameChoice.label,isCurrent:()=>!cancelled&&session()===active});
         renamed=true;record.renameTitle=done.title;record.renameError='';renameNote=done.unchanged?'名称已一致':`已重命名为 ${done.title}`;
       }catch(error){record.renameError=error?.message||'重命名失败';renameNote=`重命名失败：${record.renameError}`;}
     }
-    const finalLabel=choice?.label||(keepClassifierVerdict?resultLabelOf(result):fallbackLabel);
+    const finalLabel=lmPick?.label||choice?.label||(keepClassifierVerdict?resultLabelOf(result):fallbackLabel);
     announce('done',`${MODE_LABEL[mode]||MODE_LABEL.quick}：${finalLabel} · ${verdict} · ${renameNote}`);
     return {sessionId:active,label:finalLabel,verdict,status:mode==='price'?'price':mode==='combined'?'combined':result?.status||'none',renamed,renameNote,fit:Number.isFinite(Number(result?.signals?.fit))?Number(result.signals.fit):null,separation:Number.isFinite(Number(result?.signals?.separation))?Number(result.signals.separation):null,top3:topThreeOf(result),byPrice:mode==='price'};
   }
@@ -791,7 +823,8 @@
   function priceControlProbe(){
     const sequence=++priceProbeSequence,index=(sequence-1)%1000;
     const id='COST'+String(index+1).padStart(4,'0'),a=17+index%83,b=19+Math.floor(index/83);
-    return {prompt:`检测序号 ${sequence}，标识 ${crypto.randomUUID()}。不要复述序号和标识。测试编号 ${id}，不要复述编号。请实际使用一次可用的 Bash 或计算工具计算 ${a}×${b}；不要联网，不要创建或修改文件。使用工具后只回复“OK 数值”；若没有工具，直接心算并只回复“NO_TOOL 数值”。不要解释。`};
+    const priceProbeId=crypto.randomUUID();
+    return {priceProbeId:modeReady()&&!battleMode()?priceProbeId:null,prompt:`检测序号 ${sequence}，标识 ${priceProbeId}。不要复述序号和标识。测试编号 ${id}，不要复述编号。请实际使用一次可用的 Bash 或计算工具计算 ${a}×${b}；不要联网，不要创建或修改文件。使用工具后只回复“OK 数值”；若没有工具，直接心算并只回复“NO_TOOL 数值”。不要解释。`};
   }
   /* 发送一条探针、等待回复、评分。单条模式与自动抽卡共用这一条路径。 */
   async function captureProbe({record,probeIndex,expectedSession,label='',priceOnly=false}){
@@ -811,7 +844,7 @@
     guard(active);
     if(priceOnly){
       await waitForMathReply(active,thinkingBaseline,probeIndex+1,beforeText,'价格探针');
-      guard(active);record.priceProbe={sentAt,completedAt:Date.now()};
+      guard(active);record.priceProbe={sentAt,completedAt:Date.now(),id:probe.priceProbeId||null};
       publish('scored',`${label}短回复已结束，读取当前会话账单；不进行数字指纹评分`,record);
       pendingPrompt='';sent=false;return {record,sessionId:active};
     }
@@ -821,7 +854,7 @@
     const result=await score(record);
     if(result){
       const verdict={clear:'清晰匹配',close:'同族近似',weak:'弱匹配'}[result.status]||result.status;
-      publish('scored',`${label}${verdict}：${resultLabelOf(result)} · 已用 ${result.used_outputs}/${record.samples.length} 条有效回复`,record);
+      publish('scored',`${label}${verdict}：${headlineOf(result)} · 已用 ${result.used_outputs}/${record.samples.length} 条有效回复`,record);
     }else publish('scored',`${label}${record.lastCheck?.message||'本条回复未通过计分门控'}`,record);
     pendingPrompt='';sent=false;return {record,sessionId:active};
   }
@@ -1147,6 +1180,10 @@
      403 分型：{"error":"Unauthorized"} = 门禁未过；{"error":"User does not own session"} =
      cookie 生效但会话不归当前账号（78B），与门禁未过（24B）是两回事，别混。
      注：content script 在 ISOLATED world，但 cookie jar 按源共享，读写与页面主世界完全一致。 */
+  /* v2.19.12 Arena 风控规避：停用本扩展主动发往 Arena 的探测 —— /cost 路由与
+     价格指纹相关接口一律不再请求；页面自身流量仍由嗅探器被动观察，不受影响。
+     要恢复就把下面置 true（background.js 里同名开关管实时单价表抓取）。 */
+  const ARENA_API_PROBES=false;
   const PH_OVERRIDE_KEY='ph-toolbar-overrides';
   /* 注意：这里必须是**字符串**。曾经写成 JSON.parse(decodeURIComponent(编码值))，拿到对象后
      encodeURIComponent 会序列化成 [object Object]（%5Bobject%20Object%5D）—— cookie 值是坏的，
@@ -1199,7 +1236,9 @@
     return result;
   }
   async function probeCostRoute(id){
+    if(!ARENA_API_PROBES)return null;
     if(!id)return null;
+    try{window.postMessage({source:'amp-content',type:'AMP_SYNC_TRANSCRIPT',sid:String(id)},'*');}catch{}
     const paths=battleMode()
       ?[`/api/evaluation/${id}/cost`]
       :[`/api/chat/${id}/cost?includeSession=true`,`/api/evaluation/${id}/cost`];
@@ -1461,6 +1500,15 @@
       return bits.join(' · ');
     };
     if(separable){fpCands.hidden=true;fpCandsList.textContent='';return;}
+    const agentHint=view?.agent_price_hint;
+    if(agentHint){
+      rows.push(['Agent 输出旁证（可缺省）',agentHint.note||'可选辅助未就绪；保持原识别结果']);
+      for(const group of (Array.isArray(agentHint.groups)?agentHint.groups:[])){
+        const names=group.models.slice(0,3).map(item=>(item.label||item.model_key)+(item.rates_complete===false?'（缺价未排除）':'')).join(' / ');
+        rows.push([names+(group.models.length>3?` 等 ${group.models.length} 个`:''),
+          `out $${group.output_usd_per_mtok}/Mtok → O≈${Math.round(group.implied_output_tokens)}，约为可见估算 ${Number(group.visible_ratio.toFixed(2))} 倍；仅辅助`]);
+      }
+    }
     const hard=view?.hard_filter;
     const list=Array.isArray(hard?.candidates)?hard.candidates:[];
     if(list.length){
@@ -1474,6 +1522,13 @@
         if(c.cache_rate_batch)bits.push('⚠️ :batch 半价');
         rows.push([c.display||c.model_key,bits.join(' · ')]);
       }
+    }
+    const incompleteCandidates=agentHint&&Array.isArray(hard?.partial_candidates)?hard.partial_candidates:[];
+    if(incompleteCandidates.length){
+      const rateLabel={I:'输入',O:'输出',W:'缓存写',R:'缓存读'};
+      rows.push(['费率不全，尚未排除',`${incompleteCandidates.length} 个；不能只因完整匹配列表没列出，就认定它们已淘汰`]);
+      for(const c of incompleteCandidates)rows.push([c.display||c.model_key,
+        `缺 ${(c.missing_rates||[]).map(key=>rateLabel[key]||key).join(' / ')}单价；已知项反推 I=${c.counts?.I??'—'} O=${c.counts?.O??'—'}；不是完整费率匹配`]);
     }
     const hit=view?.hit,runner=view?.runner_up;
     const windowHits=Array.isArray(view?.price_window_hits)?view.price_window_hits:[];
@@ -1574,6 +1629,7 @@
      `ph-toolbar-overrides`，本扩展现在会临时写 {"credit-system-m1":"cost-shown"} 再读 /cost
      （读完必删）。所以 403 只剩三种：cookie 写失败 / 会话不归当前账号 / 用户已有别的覆写值。 */
   const ledgerBlockedReason=()=>{
+    if(!ARENA_API_PROBES)return 'Arena /cost 与价格指纹探测已停用（规避风控），账本只展示嗅探器被动捕获的数据。';
     const probe=ledgerState.costProbe;
     if(battleMode())return 'Battle 会话应带逐条 token 用量（GET /api/evaluation/<sid> 的 messages[].metadata.usage）—— 没抓到说明还没结算，发一条消息后再点「刷新」。';
     const gate=probe?.status===403
@@ -1680,7 +1736,7 @@
     }catch(error){mark('花费账本（base = Σ token × 公开单价）','探测失败：'+(error?.message||'未知原因'));}
     /* v2.5.3 诊断：dump 第一个侧栏会话的菜单结构（只读取 + 打开菜单 + Esc，不点任何菜单项）。 */
     try{
-      const rows=[...document.querySelectorAll('a[data-sidebar="menu-button"][href],a[href*="/agent/"],a[href*="/work/"]')].filter(visible);
+      const rows=[...document.querySelectorAll('a[data-sidebar="menu-button"][href],a[href*="/agent/"],a[href*="/work/"],a[href*="/c/"]')].filter(visible); // v2.19.10：补 /c/<id>
       mark('侧栏可见会话行',rows.length?String(rows.length):'未找到（侧栏可能收起或结构变了）');
       const link=rows.find(element=>globalThis.ArenaProbeRename?.sessionFromPath?.(new URL(element.href,location.origin).pathname))||rows[0];
       if(link){
@@ -1722,6 +1778,22 @@
     return nearest;
   };
   const badgeTextOf=result=>({clear:'清晰匹配',close:'同族近似',weak:'弱匹配'}[result?.status]||result?.status||'');
+  /* v2.19.11 lmfpd 对照通道上头条：主指纹未定/只有家族候选时，把 lmfpd 的闭集首选直接顶上；
+     clear 不动（两套独立证据，主指纹清晰时以它为准，分歧见下方 lmfpd 行）。 */
+  const headlineOf=result=>{
+    const base=resultLabelOf(result),lm=result?.lmfpd,name=lm?.prediction_name;
+    if(result?.status==='weak'){
+      if(lm?.decision==='not_model')return '未定 · lmfpd 判非模型序列';
+      if(name)return `未定 · lmfpd ${lm.decision==='partial'?'倾向':'首选'} ${name}`;
+      return base;
+    }
+    if(name&&lm?.decision==='scored'){
+      if(lm.agreement==='lmfpd 一致')return name;
+      if(result?.status!=='close')return `${name} · lmfpd 首选（主指纹 ${base}）`;
+    }
+    if(result?.status==='close'&&name)return `${base} · lmfpd ${name}`;
+    return base;
+  };
   /* v2.10.0 价格通道：把 Arena 公开的「每模型任务成本」显示出来（详见 Arena价格接口调研.md）。
      网页版不下发每次请求的美元成本，所以默认只展示候选的成本档位；一旦嗅探器抓到现场成本，
      就同时显示成本一致性核对。 */
@@ -1771,6 +1843,21 @@
     if(!d)return (pricing.usage_source?costLine:` · 单价:等待 token 用量${costLine}`)+realLine+reverseLine+fpLine;
     const verdict=d.separable?'价格可区分':'价格不可区分';
     return ` · 单价区分度 ${d.span}×（${verdict}：${d.min.label} ${fmtUsd(d.min.min_usd)} ~ ${d.max.label} ${fmtUsd(d.max.max_usd)}）${costLine}${realLine}${reverseLine}${fpLine}`;
+  };
+  /* v2.19.11 lmfpd 对照通道：Fingerpoint Detector（lm.ikale.io）66 模型库的第二意见，
+     只展示不参与判定 —— decision / 校准概率 / 与主指纹最近候选的一致性。 */
+  const lmfpdNoteOf=result=>{
+    const lm=result?.lmfpd;
+    if(!lm)return '';
+    if(lm.decision==='unavailable')return `lmfpd 对照 · 参考库未加载${lm.error?`（${lm.error}）`:''}`;
+    if(lm.decision==='not_model')return 'lmfpd 对照 · 判定非模型序列（未生成排名）';
+    const name=lm.prediction_name;
+    if(!name)return `lmfpd 对照 · 暂不可评分（有效 ${lm.used_outputs||0}/3 条）`;
+    const top3=(lm.top3||[]).map(t=>t.display_name||t.model).filter(Boolean);
+    const prob=Number.isFinite(lm.probability)?` ${(lm.probability*100).toFixed(0)}%（库内相对）`:'';
+    const verdict={scored:'已评分',partial:'部分样本排名'}[lm.decision]||lm.decision;
+    const agree=String(lm.agreement||'').replace(/^lmfpd /,'');
+    return `lmfpd 对照 · ${name}${prob}${top3.length?` · Top3 ${top3.join(' / ')}`:''} · ${verdict}${agree&&agree!=='无有效排名'?` · ${agree}`:''}`;
   };
   async function drawRound(index){
     if(generating()){publishDraw('waiting',`第 ${index} 轮：上一条回复仍在生成，等待结束后再新建聊天…`);await waitFor(()=>!generating(),'上一条回复超过 240 秒仍在生成，本轮跳过',240000,null);}
@@ -2054,7 +2141,7 @@ table.cost-table td.c-zero{color:#5f7a73}
 table.cost-table tfoot td{background:#162924;color:#d6ece2;font-weight:650;border-top:1px solid #35544a}
 .cost-empty{padding:9px;color:#7d968f;font-size:8px;line-height:1.55}
 `;
-    const box=el('section','box'),head=el('header','head'),mark=el('span','mark','V'),title=el('div','title');title.append(el('b','','Vodka-Arena-Model'),el('small','','MODEL INTELLIGENCE · v2.19.10'));const collapse=el('button','collapse','—');collapse.title='收起';collapse.addEventListener('click',()=>{collapsed=true;paint();});const headTools=makeTools();head.append(mark,title,headTools[0],headTools[1],collapse);
+    const box=el('section','box'),head=el('header','head'),mark=el('span','mark','V'),title=el('div','title');title.append(el('b','','Vodka-Arena-Model'),el('small','','MODEL INTELLIGENCE · v2.19.12'));const collapse=el('button','collapse','—');collapse.title='收起';collapse.addEventListener('click',()=>{collapsed=true;paint();});const headTools=makeTools();head.append(mark,title,headTools[0],headTools[1],collapse);
     style.textContent+=`
 /* Vodka-Arena-Model · deep-space / ice-blue interface */
 .box{--vam-bg:#090e1a;--vam-panel:#10192c;--vam-border:#253756;--vam-text:#e5edff;--vam-muted:#91a4c7;--vam-accent:#67deff;width:368px;border-color:#304767;border-radius:16px;background:radial-gradient(ellipse at top right,#233c652e,transparent 55%),var(--vam-bg);color:var(--vam-text);box-shadow:0 20px 64px #020611b3,0 0 0 1px #67deff0c;font:12px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark}
@@ -2099,7 +2186,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
 `;
     head.title='按住拖动可移动浮层';installDrag(head);
     const body=el('div','body'),warning=el('p','warning','点击即发送真实消息：下拉可选价格指纹、数字指纹或组合。价格发 1 题取账单；数字可自动补题；组合在数字候选中结合价格排序。“只取最接近”只把顶部名称/最终识别定为第一名，下方候选和证据仍照常展示；默认关闭，实际改会话名仍需勾选改名。'),controls=el('div','controls');runOneButton=el('button','primary','快速识别 · 随机1题');runAllButton=el('button','all','精准识别 · 3题全问');runPriceButton=el('button','all','价格识别 · 1题按价');controls.style.gridTemplateColumns='1fr 1fr';controls.append(runOneButton,runAllButton);const minor=el('div','minor');appendButton=el('button','','再补 1 题');stopButton=el('button','stop','停止');clearButton=el('button','','清除结果');minor.append(appendButton,stopButton,clearButton);progressNode=el('p','progress');progressNode.setAttribute('role','status');
-    resultNode=el('section','result');const resultTop=el('div','result-top');resultModel=el('div','model');resultBadge=el('span','badge');resultTop.append(resultModel,resultBadge);resultMetrics=el('div','metrics');resultBank=el('div','bank');resultNode.append(resultTop,resultMetrics,resultBank);
+    resultNode=el('section','result');const resultTop=el('div','result-top');resultModel=el('div','model');resultBadge=el('span','badge');resultTop.append(resultModel,resultBadge);resultMetrics=el('div','metrics');resultBank=el('div','bank');resultLmfpd=el('div','bank lmfpd');resultNode.append(resultTop,resultMetrics,resultBank,resultLmfpd);
     /* 轨迹直读不再是独立卡片（用户要求不展示）：并入数字指纹面板底部一行小字。 */
     traceNode=el('div','bank');traceNode.textContent='轨迹直读：等待 public-access-token（页面自身请求的响应头）';
     const drawBox=el('section','draw'),drawHead=el('div','draw-title');drawHead.append(el('b','','自动抽卡'),el('span','','New Chat 循环'));
@@ -2230,7 +2317,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     
     
     runOneButton.textContent=busy?'运行中…':'开始识别';runAllButton.textContent=busy?'运行中…':'精准识别 · 3题全问';runPriceButton.textContent=busy?'运行中…':'价格识别 · 1题按价';progressNode.textContent=state.progress||progress;
-    if(state.result){resultNode.hidden=false;resultNode.dataset.level=state.recognition?'close':state.result.status;resultModel.textContent=state.recognition?(state.recognition.label||'Arena 模型池内暂无候选'):resultLabelOf(state.result);resultBadge.textContent=state.recognition?'Arena 候选排序':badgeTextOf(state.result);resultMetrics.textContent=`拟合 ${Number(state.result.signals.fit).toFixed(3)} · 分离 ${Number(state.result.signals.separation).toFixed(3)} · 家族 ${(Number(state.result.signals.family_probability)*100).toFixed(1)}% · 有效 ${state.result.used_outputs}/${samples} · 数字 ${Number.isFinite(Number(state.result.signals.evidence_numbers))?Number(state.result.signals.evidence_numbers):'—'}${state.result.signals.pooled?'（池化）':''} · 候选集 ${decisionOf(state.result)?.set_size??1}${decisionOf(state.result)?.off_reference?' · 混合/漂移提示':''} · Top3 ${topThreeOf(state.result)||'—'}`;const source=String(state.result.bank_source||'');const coverage=source.includes('ModelTrace d4131b3')?' · 离线库仅 GPT/Claude，不含 Gemini':source.includes('WhatsMyLLM v2026.09.5')?' · 指纹库只含 Gemini 3.8 Flash 参考，其他 Gemini 版本未覆盖':'';resultBank.textContent=`${source} · ${state.result.bank_models} 个候选${coverage} · ${localSummary()}${(()=>{const note=costNoteOf(state.result);return note?' · '+note:'';})()}${pricingNoteOf(state.result)}`;compactText.textContent=`${resultBadge.textContent} · ${resultModel.textContent}`;}
+    if(state.result){resultNode.hidden=false;resultNode.dataset.level=state.recognition?'close':state.result.status;resultModel.textContent=state.recognition?(state.recognition.label||'Arena 模型池内暂无候选'):headlineOf(state.result);resultBadge.textContent=state.recognition?'Arena 候选排序':badgeTextOf(state.result);resultMetrics.textContent=`${Number.isFinite(state.result.lmfpd?.probability)?`lmfpd 置信 ${(state.result.lmfpd.probability*100).toFixed(0)}%（库内相对）· `:''}拟合 ${Number(state.result.signals.fit).toFixed(3)} · 分离 ${Number(state.result.signals.separation).toFixed(3)} · 家族 ${(Number(state.result.signals.family_probability)*100).toFixed(1)}% · 有效 ${state.result.used_outputs}/${samples} · 数字 ${Number.isFinite(Number(state.result.signals.evidence_numbers))?Number(state.result.signals.evidence_numbers):'—'}${state.result.signals.pooled?'（池化）':''} · 候选集 ${decisionOf(state.result)?.set_size??1}${decisionOf(state.result)?.off_reference?' · 混合/漂移提示':''} · Top3 ${topThreeOf(state.result)||'—'}`;const source=String(state.result.bank_source||'');const coverage=source.includes('ModelTrace d4131b3')?' · 离线库仅 GPT/Claude，不含 Gemini':source.includes('WhatsMyLLM v2026.09.5')?' · 指纹库只含 Gemini 3.8 Flash 参考，其他 Gemini 版本未覆盖':'';resultBank.textContent=`${source} · ${state.result.bank_models} 个候选${coverage} · ${localSummary()}${(()=>{const note=costNoteOf(state.result);return note?' · '+note:'';})()}${pricingNoteOf(state.result)}`;const lmNote=lmfpdNoteOf(state.result);resultLmfpd.hidden=!lmNote;resultLmfpd.textContent=lmNote;compactText.textContent=`${resultBadge.textContent} · ${resultModel.textContent}`;}
     else{resultNode.hidden=true;compactText.textContent=state.draw.running?`抽卡 ${state.draw.round}/${state.draw.total}`:samples?`已捕获 ${samples}/3 条`:'模型探测';}
     if((state.prefs.mode==='price'||state.prefs.mode==='combined')&&state.price_fingerprint?.suggestion){const fp=state.price_fingerprint,suggestion=fp.suggestion;if(fp.forced_best===true)compactText.textContent=`用户强制单选 · ${suggestion.label}`;else if(state.prefs.mode==='combined')compactText.textContent=`组合候选（启发式，非确定） · ${suggestion.label}`;else if(fp.separable===true)compactText.textContent=`价格唯一 · ${suggestion.label}`;else{const count=Number(fp.price_window_matches)||fp.price_window_hits?.length||fp.rate_family?.models?.length||fp.hard_filter?.candidates?.length||0;compactText.textContent=count?`价格未定 · ${count} 个候选`:'价格未定 · 候选见详情';}}
     const focused=root.activeElement;
@@ -2308,7 +2395,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     if(host&&!host.isConnected)createHud();
     if(foldOn&&mutations.some(change=>!foldRoot||foldRoot.contains(change.target)||change.target.contains?.(foldRoot)))scheduleFold();
   }).observe(document,{childList:true,subtree:true});
-  try{document.documentElement.dataset.ampBuild='v2199';}catch{} // 构建标记：验证页面注入的是最新脚本
+  try{document.documentElement.dataset.ampBuild='v21912';}catch{} // 构建标记：验证页面注入的是最新脚本
   /* 页面性能：1s 无条件重画改事件驱动 —— 路由/历史变更与嗅探回包即时重画（它们正是 agentPage/explicit 状态变化的来源），
      另留 5s 低频兜底兜住其余不定期变化（显隐判断仍在 paint 内部，行为语义不变）。 */
   createHud();setInterval(paint,5000);

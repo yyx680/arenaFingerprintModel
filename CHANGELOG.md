@@ -1,3 +1,14 @@
+## 2.19.12
+
+- **停用对 Arena 的主动探测请求**：规避风控「You opened too many chats in a short time」——`probeCostRoute`（`/api/chat/:id/cost`、`/api/evaluation/:id/cost` 及 PostHog 覆写 cookie 流程）与 `fetchLivePricingTable`（榜单 RSC 实时单价表）不再发起；花费账本如实提示「已停用」，价格/组合证据退化为无账单输入并沿用随包快照价目。页面自身流量仍由嗅探器被动观察，主指纹与 lmfpd 通道不受影响。恢复开关：`content.js` 与 `background.js` 中 `ARENA_API_PROBES` 置 true。
+- `manifest.json` / `package.json`、弹窗与浮层标题、构建标记（`v21912`）升级到 2.19.12。
+
+## 2.19.11
+
+- **新增 lmfpd 第二指纹通道**：把主指纹判定有效的同一批回复再喂给 Fingerpoint Detector（lm.ikale.io，66 模型库 `shared-detector-v2` 排名器）。结果面板独立一行显示其预测、库内相对校准概率、Top3 候选、判定（scored / partial / unscorable / not_model）及与主指纹最近候选的一致性（一致 / 同族 / 不一致）；加载失败也会显示"参考库未加载"而非静默缺席。参考数据随包内置于 `lmfpd-data/`（约 4.8MB，`tools/fetch-lmfpd-data.mjs` 可刷新并校验 sha256）。
+- **指纹结论以 lmfpd 为准**：lmfpd 已评分（scored）时，勾选"改名"后会话名直接采用其闭集首选；partial（不足三条）仅在主指纹非清晰时才顶位。头条同步——主指纹未定/仅家族候选时直接展示 `lmfpd 首选/倾向`；两通道一致时显示同一模型；clear 分歧时头条给 lmfpd 首选并附注主指纹结论。`record.recognition` 与主指纹 status 判定不受影响，仍如实反映各通道自身证据。
+- `manifest.json` / `package.json`、弹窗与浮层标题、构建标记（`v21911`）升级到 2.19.11。
+
 ## 2.19.10
 
 - **Battle 实测费率优先**：价格来源统一为 Battle 稳定实测 > Arena 官方 > OpenRouter；同费率组、硬筛选、软排序平分及跨费率组代表项均按此顺序破平。

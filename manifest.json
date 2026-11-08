@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vodka-Arena-Model",
-  "version": "2.19.10",
+  "version": "2.19.12",
   "author": "Vodka",
   "description": "Arena 模型识别工具：支持价格指纹、数字指纹与组合排序，提供会话账单、可选按最接近候选改名、连续抽卡和每日额度查询。",
   "minimum_chrome_version": "123",

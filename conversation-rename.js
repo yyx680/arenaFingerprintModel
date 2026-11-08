@@ -3,7 +3,9 @@
   let busy=false,busySince=0;
   /* Arena 站点源：生产 arena.ai 与预发布 canary.arena.ai（同一产品；登录态/新功能常先在 canary）。 */
   const ARENA_ORIGIN_RE=/^https:\/\/(?:canary\.)?arena\.ai$/;
-  const sessionFromPath=path=>path.match(/^\/(?:agent|work)\/([a-zA-Z0-9-]{1,128})\/?$/)?.[1]||null;
+  /* v2.19.10：Arena 2026-10 起把会话路由从 `/agent/<id>` 改成 **`/c/<id>`**（实测侧栏 20 个
+     会话链接全是 `/c/...`）。这里必须一并认，否则新路由下重命名直接失效（guard 会一直报「当前会话已变化」）。 */
+  const sessionFromPath=path=>path.match(/^\/(?:agent|work|c)\/([a-zA-Z0-9-]{1,128})\/?$/)?.[1]||null;
   const text=element=>(element?.textContent||'').trim();
   const exact=(element,words)=>words.includes(text(element));
   const visible=element=>{

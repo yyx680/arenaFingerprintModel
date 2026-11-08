@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "DesignArena Probe",
+  "version": "0.1.0",
+  "description": "在 designarena.ai 的新对话里自动发探针、采集回复、提取风格特征，用于模型指纹标定。",
+  "permissions": ["storage", "clipboardWrite"],
+  "host_permissions": ["https://*.designarena.ai/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://*.designarena.ai/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

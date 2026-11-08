@@ -2,7 +2,7 @@
   "name": "arena-model-probe-standalone",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "2.19.10",
+  "version": "2.19.12",
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",

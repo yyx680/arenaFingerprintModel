@@ -66,7 +66,7 @@ function subtractBasis(values, basis) {
   return output;
 }
 
-function hellingerFeature(counts) {
+export function hellingerFeature(counts) {
   const total = counts.reduce((sum, value) => sum + value, 0) + ALPHA * DIMENSION;
   return counts.map((value) => Math.sqrt((value + ALPHA) / total));
 }
@@ -84,7 +84,7 @@ function splitIntoFour(values) {
   return chunks;
 }
 
-function orderedBlockFeature(numbers) {
+export function orderedBlockFeature(numbers) {
   const pieces = [];
   for (const chunk of splitIntoFour(numbers)) {
     const bins = Array(16).fill(0.5);

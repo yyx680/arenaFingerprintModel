@@ -1,12 +1,13 @@
 import {identifyPrepared, prepareOutputs} from './model-probe-engine.js';
 import {loadProbeBank} from './model-probe-bank.js';
+import {analyzeLmfpdOutputs, loadLmfpdChannel, lmfpdSummary} from './lmfpd-channel.js';
 import {createBalanceReader} from './billing.js';
 import {countNumbers, parseNumbers} from './modeltrace-core.js';
 import {queryRunTrace} from './model-trace.js';
 import {rhythmProfile, rhythmVote, rhythmAccumulate} from './rhythm-channel.js';
 import {normalizeCostTable, crossCheckCost, observedCostFromSignals, observedCostDetail, costDetailFromSession, describeCostDetail, chargedFromBase, TIER_LABEL} from './price-channel.js';
-import {normalizePricingTable, applyCacheRates, mergeBattleObservedPrices, mergeOpenRouterPrices, pricingSummary, bankPricing, discrimination, rankByObservedCost, expectedCostUsd, hardFilterByCosts, normalizeCostBreakdown, baseModelName, pricingSourcePriority, CONSISTENT_RATIO, hasNonTokenMediaCost} from './pricing-channel.js';
-import {parseUsage, usageShape, describeUsage, sumUsage, latestUsage, normalizeEstimateBucket, USAGE_SCHEMA} from './usage-channel.js';
+import {normalizePricingTable, applyCacheRates, mergeBattleObservedPrices, mergeOpenRouterPrices, pricingSummary, bankPricing, discrimination, rankByObservedCost, expectedCostUsd, hardFilterByCosts, normalizeCostBreakdown, baseModelName, canonicalModelSlug, pricingSourcePriority, CONSISTENT_RATIO, hasNonTokenMediaCost} from './pricing-channel.js';
+import {parseUsage, usageShape, describeUsage, sumUsage, latestUsage, normalizeEstimateBucket, estimateUsageFromStats, USAGE_SCHEMA} from './usage-channel.js';
 import {buildLedger, ledgerRowsFromCostMessages, ledgerRowsFromEstimates, ledgerTotals, pairCostWithUsage, LEDGER_SCHEMA, samePriceGroups, tokenRatioText, describeTotals, formatUsd} from './cost-ledger.js';
 import './text-channel.js';
 // Embedded manual reCAPTCHA audio assistance (GPL-3.0-only), separate from AMP routing.
@@ -92,6 +93,9 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     const shrinkage = Number.isFinite(requestedShrinkage) ? Math.min(0.9, Math.max(0, requestedShrinkage)) : DEFAULT_SHRINKAGE;
     const result = identifyPrepared(prepared, loaded.bank, {shrinkage});
     const nearest = result.nearest;
+    /* v2.19.11 lmfpd 对照通道：同一批有效回答再过一遍 lm.ikale.io 的 66 模型库，
+       只做旁证展示，不参与 status/改名判定；数据随包内置，失败静默降级为 null。 */
+    const lmfpd = await lmfpdScoreBlock(prepared, result);
     const price = await priceBlockFor(result);
     const bankIds = (loaded.bank?.models || []).map(m => m?.id).filter(id => typeof id === 'string');
     const pricing = await pricingBlockFor(result, {bankIds});
@@ -122,11 +126,30 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
         price,
         pricing,
         price_fingerprint: priceFingerprint,
+        lmfpd,
+        lmfpd_bank: lmfpd ? 'Fingerpoint Detector（lm.ikale.io）' : null,
       },
     };
   })().then(reply, error => reply({error: error?.message || '模型指纹评分失败'}));
   return true;
 });
+
+/* v2.19.11 lmfpd 对照通道：把主指纹已判定有效的回答再喂给 Fingerpoint Detector
+   （lm.ikale.io，66 模型库）的 shared-detector-v2 排名器。只产出对照摘要，
+   任何一步失败都返回 null，绝不影响主评分。 */
+async function lmfpdScoreBlock(prepared, primaryResult) {
+  try {
+    if (!prepared?.usable?.length) return null;
+    const channel = await loadLmfpdChannel();
+    const outputs = prepared.usable.map(({text, expected_count}) => ({text, expected_count}));
+    const analysis = analyzeLmfpdOutputs(outputs, channel.bank, channel.detector);
+    const summary = lmfpdSummary(analysis, primaryResult?.nearest || null);
+    return {...summary, built_at: channel.builtAt || null, bank_models: channel.bank?.models?.length || 0};
+  } catch (e) {
+    /* 数据缺失/解码失败时仍回报一行，让浮层能区分“没跑”和“库没加载”，主指纹不受影响。 */
+    return {decision: 'unavailable', error: String(e?.message || e || 'unknown')};
+  }
+}
 
 /* ---------------------------------------------------------------------------
    v2.9.0 网络层直读（D）+ 节奏通道（F）+ 建档层（B）
@@ -155,7 +178,7 @@ globalThis.__ampBtrace = btraceLog;
 // v2.9.19：清掉已下线功能遗留的本机数据（单 token 电池 / 手工标签）。
 void chrome.storage.local.remove(['amp.token.evidence.v1', 'amp.manualLabels.v1']).catch(() => {});
 
-const netState = {token: '', tokenAt: 0, models: [], currentModels: [], streams: [], pendingStreams: [], lastTraceAt: 0, recentRequests: [], pageSnifferAliveAt: 0, pageScanStats: null, costSignals: [], costRouteSignals: [], costGate: null, officialCost: null, usageSignals: [], messageUsage: [], transcriptEstimates: [], identifiedModel: null};
+const netState = {token: '', tokenAt: 0, models: [], currentModels: [], streams: [], pendingStreams: [], lastTraceAt: 0, recentRequests: [], pageSnifferAliveAt: 0, pageScanStats: null, costSignals: [], costRouteSignals: [], costGate: null, officialCost: null, usageSignals: [], messageUsage: [], transcriptEstimates: [], agentPriceOutputs: [], identifiedModel: null};
 const traceState = {status: 'idle', text: '等待 public-access-token（页面自身请求的响应头）', runId: null, name: null, environment: null, rhythm: null, endpoints: [], error: null, at: null};
 
 /* v2.10.0 价格通道：Arena 在 Agent Pareto 榜公开每个模型的「任务中位成本」（见 Arena价格接口调研.md）。
@@ -329,8 +352,13 @@ function parseLeaderboardFlight(text) {
   return rows;
 }
 
+/* v2.19.12 Arena 风控规避：停用对 Arena 的主动探测请求 —— 榜单 RSC 实时单价表
+   不再抓取（回退到随包快照 + 已缓存的存活表）。要恢复就把下面置 true。 */
+const ARENA_API_PROBES = false;
+
 /* 实时抓取公开单价表；成功后归一化、持久化到 chrome.storage.local 并刷新内存缓存。 */
 async function fetchLivePricingTable(force = false) {
+  if (!ARENA_API_PROBES) throw new Error('Arena 价格指纹实时抓取已停用（风控规避）');
   if (!force && Date.now() - lastLiveFetchAt < PRICING_LIVE_COOLDOWN_MS) return null;
   lastLiveFetchAt = Date.now();
   const response = await fetch('https://arena.ai/leaderboard', {headers: {RSC: '1'}, cache: 'no-store', credentials: 'omit'});
@@ -397,6 +425,20 @@ async function decoratePricingTable(rawDoc) {
   const arenaKeys = new Set(officialRows.keys());
   const mergedRows = new Map((merged.rows || []).map(row => [row.model_key, row]));
   const observedKeys = new Set((merged.rows || []).filter(row => row.source === 'arena-battle-observed').map(row => row.model_key));
+  const battleSamplesBySlug = new Map();
+  for (const row of (Array.isArray(battleRates?.rows) && battleRates.rows.length ? battleRates.rows : (merged.rows || []))) {
+    if (!row?.observed_samples) continue;
+    const slug = canonicalModelSlug(row.model_key);
+    if (slug) {
+      const exactKey = `${slug}|${row.input_usd_per_mtok}|${row.output_usd_per_mtok}`;
+      const entry = battleSamplesBySlug.get(exactKey) || {samples: row.observed_samples, tiers: [], inRate: row.input_usd_per_mtok, outRate: row.output_usd_per_mtok};
+      entry.tiers.push({...row.observed_samples, tier_key: row.model_key});
+      battleSamplesBySlug.set(exactKey, entry);
+      if (!battleSamplesBySlug.has(slug)) {
+        battleSamplesBySlug.set(slug, entry);
+      }
+    }
+  }
   for (const profile of table.all()) {
     profile.arena_listed = arenaKeys.has(profile.model_key);
     profile.arena_battle_observed = observedKeys.has(profile.model_key);
@@ -406,7 +448,18 @@ async function decoratePricingTable(rawDoc) {
       : profile.arena_listed ? 'arena-official'
         : (typeof mergedRow?.source === 'string' ? mergedRow.source : null);
     profile.battle_observed_samples = profile.arena_battle_observed
-      ? (mergedRow?.observed_samples || null) : null;
+      ? (mergedRow?.observed_samples ? {...mergedRow.observed_samples} : null) : null;
+    if (battleSamplesBySlug.size) {
+      const slug = canonicalModelSlug(profile.display || profile.model_key) || canonicalModelSlug(profile.model_key);
+      const exactKey = slug ? `${slug}|${profile.input_usd_per_mtok}|${profile.output_usd_per_mtok}` : '';
+      const matched = (exactKey && battleSamplesBySlug.get(exactKey)) || (slug ? battleSamplesBySlug.get(slug) : null);
+      if (matched && profile.input_usd_per_mtok === matched.inRate && profile.output_usd_per_mtok === matched.outRate) {
+        if (!profile.battle_observed_samples) profile.battle_observed_samples = {...matched.samples};
+        if (matched.tiers.length > 1) {
+          profile.battle_observed_samples.tier_samples = matched.tiers.map(t => ({...t}));
+        }
+      }
+    }
     if (profile.arena_battle_observed) profile.battle_observed_rates = {
       input_usd_per_mtok: profile.input_usd_per_mtok,
       output_usd_per_mtok: profile.output_usd_per_mtok,
@@ -429,7 +482,7 @@ async function decoratePricingTable(rawDoc) {
 /** 识别费率优先级：Battle 稳定实测 > Arena 官方参考 > OpenRouter 公开价兜底。 */
 function arenaPricingTable(table, pageUrl = '') {
   let agentOnly = false;
-  try { agentOnly = /^\/(?:agent|work)(?:\/|$)/i.test(new URL(pageUrl).pathname); } catch {}
+  try { agentOnly = /^\/(?:agent|work|c)(?:\/|$)/i.test(new URL(pageUrl).pathname); } catch {} // v2.19.10：补 Arena 新会话路由 /c/<id>，否则新路由下不会按 agent 变体收窄
   // 榜单包含历史 text/webdev 条目，不等于当前 Agent 的路由池。
   // 明确的 Agent/Work 页面只过滤纯官方历史条目；Battle 实测和 OpenRouter 兜底不按后缀误删。
   const profiles = table.all().filter(profile =>
@@ -442,8 +495,11 @@ function arenaPricingTable(table, pageUrl = '') {
       : official ? profile.arena_official_rates : null;
     const source = observed ? 'arena-battle-observed'
       : official ? 'arena-official' : 'openrouter-public';
-    const primaryHasCache = (primary?.cache_read_usd_per_mtok ?? null) !== null
-      || (primary?.cache_write_usd_per_mtok ?? null) !== null;
+    const primaryHasRead = (primary?.cache_read_usd_per_mtok ?? null) !== null;
+    const primaryHasWrite = (primary?.cache_write_usd_per_mtok ?? null) !== null;
+    const usedSupplementCache = (!primaryHasRead && profile.cache_read_usd_per_mtok !== null)
+      || (!primaryHasWrite && profile.cache_write_usd_per_mtok !== null);
+    const primaryHasCache = (primaryHasRead || primaryHasWrite) && !usedSupplementCache;
     return {
       ...profile,
       ...(primary || {}),
@@ -1110,15 +1166,40 @@ function rateSignatureGroups(candidates) {
   for (const candidate of Array.isArray(candidates) ? candidates : []) {
     const rates = candidate?.rates || {};
     const sig = [rates.input, rates.output, rates.cache_write, rates.cache_read].join('|');
-    if (!map.has(sig)) map.set(sig, {rates, models: []});
+    if (!map.has(sig)) map.set(sig, {rates, counts: candidate?.counts || null, models: []});
     map.get(sig).models.push(candidate);
   }
   const groups = [...map.values()];
   for (const group of groups) {
     group.models.sort((a, b) => pricingSourcePriority(a.price_source) - pricingSourcePriority(b.price_source));
   }
+  const isSubmultipleCounts = (subCounts, baseCounts) => {
+    if (!subCounts || !baseCounts) return false;
+    let hasPositive = false;
+    let anyStrictlyLarger = false;
+    for (const k of ['I', 'O', 'W', 'R']) {
+      const a = Number(baseCounts[k]) || 0;
+      const b = Number(subCounts[k]) || 0;
+      if (a === 0 && b === 0) continue;
+      if (a <= 0 || b < a) return false;
+      const ratio = b / a;
+      if (Math.abs(ratio - Math.round(ratio)) > 1e-6) return false;
+      hasPositive = true;
+      if (Math.round(ratio) >= 2) anyStrictlyLarger = true;
+    }
+    return hasPositive && anyStrictlyLarger;
+  };
+  for (const group of groups) {
+    const prio = pricingSourcePriority(group.models[0]?.price_source);
+    group.submultipleDepth = groups.filter(other =>
+      other !== group &&
+      pricingSourcePriority(other.models[0]?.price_source) <= prio &&
+      isSubmultipleCounts(group.counts, other.counts)
+    ).length;
+  }
   return groups.sort((a, b) =>
     pricingSourcePriority(a.models[0]?.price_source) - pricingSourcePriority(b.models[0]?.price_source)
+    || (a.submultipleDepth || 0) - (b.submultipleDepth || 0)
     || b.models.length - a.models.length);
 }
 
@@ -1150,6 +1231,9 @@ async function hardFamily(table, ids, costPayload) {
     state: hard.state,
     candidates: hard.candidates.map(c => ({model_key: c.model_key, display: c.display, counts: c.counts, price_source: c.price_source || null, cache_rate_source: c.cache_rate_source, cache_rate_batch: c.cache_rate_batch})),
     partial: hard.partial.length,
+    partial_candidates: hard.partial.map(c => ({model_key: c.model_key, display: c.display || c.model_key,
+      counts: c.counts, missing_rates: c.missing_rates, rates_complete: false,
+      price_source: table.profile(c.model_key)?.price_source || null})),
     same_price_groups: hard.same_price_groups,
     excluded_media: hard.excluded_media,
     checked_models: hard.checked_models,
@@ -1157,6 +1241,170 @@ async function hardFamily(table, ids, costPayload) {
     note: hard.note,
   } : null;
   return {hard, hardOut, rateFamily};
+}
+
+/** A fail-open sidecar: never changes the hard pool, usage flags, bill selection or main result. */
+function agentPriceOutputHint(table, hard, options) {
+  const probeId = options.priceProbeId;
+  if (typeof probeId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(probeId)) return null;
+  const fallback = {state: 'not-observed', can_suggest: false, separable: false, exact_usage: false,
+    calibrated: false, ranked: [], groups: [], n_pairs: 0,
+    note: '本轮可选输出旁证未采到或尚未配对，沿用原识别结果；不拦截原结果、不借旧消息猜测。名称仅是本次探针的候选，不确认此会话后续回复的模型。'};
+  const records = new Map((Array.isArray(netState.agentPriceOutputs) ? netState.agentPriceOutputs : [])
+    .filter(row => row?.price_probe_id === probeId && typeof row.message_id === 'string')
+    .map(row => [row.message_id, row]));
+  const costs = options.costPayload?.messages || netState.officialCost?.messages || {};
+  const samples = [];let incomplete = false;
+  for (const [id, row] of records) {
+    const cost = Object.prototype.hasOwnProperty.call(costs, id) ? costs[id] : null;
+    const breakdown = normalizeCostBreakdown(cost);
+    const built = estimateUsageFromStats({text: row.chars});
+    if (!built || !breakdown || !(breakdown.output_usd > 0) || breakdown.is_fallback
+      || breakdown.total_consistent === false || breakdown.has_non_token_media_cost
+      || cost?.isLongContext || cost?.actual?.isLongContext) { incomplete = true;continue; }
+    samples.push({tokens: built.usage.outputTokens, low: built.estimate.output_range.low,
+      high: built.estimate.output_range.high, chars: built.estimate.chars.text,
+      reasoning_chars: Number(row.reasoning_chars) || 0,
+      output_usd: breakdown.output_usd, unobserved: Number(row.unobserved_parts) || 0});
+  }
+  if (!samples.length) return fallback;
+  const total = samples.reduce((sum, row) => ({tokens: sum.tokens + row.tokens, low: sum.low + row.low,
+    high: sum.high + row.high, chars: sum.chars + row.chars, output_usd: sum.output_usd + row.output_usd,
+    reasoning_chars: sum.reasoning_chars + row.reasoning_chars,
+    unobserved: sum.unobserved + row.unobserved}), {tokens: 0, low: 0, high: 0, chars: 0, output_usd: 0, reasoning_chars: 0, unobserved: 0});
+  const ranked = [];
+  const seen = new Set();
+  const isValidSubmultiple = (subCounts, baseCounts) => {
+    if (!subCounts || !baseCounts) return false;
+    let hasPositive = false;
+    let anyStrictlyLarger = false;
+    for (const k of ['I', 'O', 'W', 'R']) {
+      const a = Number(baseCounts[k]) || 0;
+      const b = Number(subCounts[k]) || 0;
+      if (a === 0 && b === 0) continue;
+      if (a <= 0 || b < a) return false;
+      const r = b / a;
+      if (Math.abs(r - Math.round(r)) > 1e-6) return false;
+      hasPositive = true;
+      if (Math.round(r) >= 2) anyStrictlyLarger = true;
+    }
+    return hasPositive && anyStrictlyLarger;
+  };
+  const computeSingleSampleDist = (samplesMeta, isThinkingName, implied, ratio) => {
+    const rawOutToVis = Number(samplesMeta?.output_to_visible_p50);
+    const shortOutToVis = Number(samplesMeta?.short_output_to_visible_p50);
+    const longOutToVis = Number(samplesMeta?.long_output_to_visible_p50);
+    const effOutToVis = total.tokens >= 500
+      ? (Number.isFinite(longOutToVis) ? longOutToVis : rawOutToVis)
+      : (total.tokens < 16 && Number.isFinite(shortOutToVis) ? shortOutToVis : rawOutToVis);
+    const reasP50 = Number(samplesMeta?.reasoning_tokens_p50);
+    const hasEmpiricalReasoning = (Number.isFinite(reasP50) && reasP50 > 4) || (Number.isFinite(effOutToVis) && effOutToVis > 1.15);
+    const hasSufficientSamples = samplesMeta && Number(samplesMeta.messages) >= 2 && (Number.isFinite(effOutToVis) || Number.isFinite(reasP50));
+    const hasHiddenReasoning = !(total.reasoning_chars > 0) && (hasEmpiricalReasoning || (!hasSufficientSamples && isThinkingName));
+    if (!(total.reasoning_chars > 0) && samplesMeta && Number(samplesMeta.messages) >= 1) {
+      const addReas = Number.isFinite(reasP50) && reasP50 > 0 ? reasP50 : 0;
+      const maxLongSlope = total.tokens >= 500
+        ? (Number.isFinite(longOutToVis) ? 4.5 : 1.75)
+        : 3.2;
+      const minLongSlope = total.tokens >= 500 && Number.isFinite(longOutToVis) ? 1.15 : 1.8;
+      const longSlope = hasHiddenReasoning
+        ? Math.min(Math.max(Number.isFinite(effOutToVis) ? effOutToVis : 1.8, minLongSlope), maxLongSlope)
+        : (Number.isFinite(effOutToVis) && effOutToVis > 0 ? Math.min(Math.max(effOutToVis, 0.85), 1.15) : 1.0);
+      const expected = hasHiddenReasoning
+        ? Math.max(total.tokens + addReas, total.tokens * longSlope)
+        : total.tokens * longSlope;
+      const lowBound = Math.max(1, total.tokens * (hasEmpiricalReasoning && total.tokens >= 50 ? 0.90 : 0.78));
+      const highBound = hasHiddenReasoning ? Math.max(expected * 2.2, total.tokens * 6) : total.tokens * 1.25 + 4;
+      const directDist = Math.abs(Math.log((implied + 3) / (total.tokens * 0.92 + 3))) * 0.45;
+      const targetDist = Math.abs(Math.log((implied + 3) / (expected + 3))) * (hasHiddenReasoning ? 0.35 : 0.70);
+      const centerDist = hasHiddenReasoning && implied >= lowBound && implied <= expected
+        ? Math.min(directDist, targetDist, 0.14 + targetDist * 0.35)
+        : targetDist;
+      const rangeDist = implied < lowBound
+        ? Math.abs(Math.log(implied / lowBound))
+        : (implied > highBound ? Math.log(implied / highBound) : 0);
+      const missingLongPenalty = total.tokens >= 500 && !Number.isFinite(longOutToVis) ? 0.03 : 0;
+      return centerDist + rangeDist + missingLongPenalty;
+    }
+    const outToVis = isThinkingName ? 6 : 1;
+    const refLow = total.tokens;
+    const refHigh = hasHiddenReasoning ? Math.max(total.tokens * outToVis, total.tokens + 180) : total.tokens;
+    return !hasHiddenReasoning || implied <= refLow
+      ? Math.abs(Math.log((implied + 3) / (total.tokens + 3)))
+      : (implied <= refHigh
+        ? Math.log(Math.max(1, ratio)) * 0.28 + 0.06
+        : Math.log(refHigh / refLow) * 0.28 + Math.log(implied / refHigh));
+  };
+  const viableCompleteBases = (hard?.candidates || []).filter(c => {
+    const r = Number(c?.rates?.output);
+    if (!(r > 0)) return false;
+    const imp = (total.output_usd * 1e6) / r;
+    const rawO2V = Number(c?.observed_samples?.long_output_to_visible_p50 ?? c?.observed_samples?.output_to_visible_p50);
+    const minRatio = (Number.isFinite(rawO2V) && rawO2V > 1.25) ? 0.94 : (total.tokens >= 200 ? 0.85 : 0.72);
+    return imp >= Math.max(1, total.tokens * minRatio - 2);
+  });
+  for (const candidate of [...(hard?.candidates || []), ...(hard?.partial || [])]) {
+    if (seen.has(candidate.model_key)) continue;
+    seen.add(candidate.model_key);
+    const profile = table.profile(candidate.model_key);
+    const rate = candidate.rates?.output ?? profile?.output_usd_per_mtok;
+    if (!(typeof rate === 'number' && Number.isFinite(rate) && rate > 0)) continue;
+    const implied = total.output_usd * 1e6 / rate, ratio = implied / total.tokens;
+    if (!Number.isFinite(implied) || !(ratio > 0)) continue;
+    const missing = Array.isArray(candidate.missing_rates) ? [...candidate.missing_rates] : [];
+    const samplesMeta = candidate.observed_samples || profile?.battle_observed_samples || null;
+    const nameHint = `${String(candidate.model_key || '')} ${String(candidate.display || '')}`;
+    const isThinkingName = /(?:^|[- (\b])(?:thinking|reasoner|high|max|xhigh|heavy|pro-preview)(?:$|[- )\b])/i.test(nameHint)
+      && !/non-thinking|no-thinking|minimal/i.test(nameHint);
+    const tiers = Array.isArray(samplesMeta?.tier_samples) && samplesMeta.tier_samples.length
+      ? samplesMeta.tier_samples
+      : [samplesMeta];
+    const rawDist = Math.min(...tiers.map(t => computeSingleSampleDist(t, isThinkingName, implied, ratio)));
+    const nonThinkingPenalty = (total.reasoning_chars > 0 && Number(samplesMeta?.messages) >= 2 && Number(samplesMeta?.reasoning_tokens_p50) === 0) ? 0.5 : 0;
+    const priceSource = candidate.price_source || profile?.price_source || null;
+    const fallbackSourcePenalty = priceSource === 'openrouter-public' ? 0.35 : (priceSource === 'arena-official' ? 0.08 : 0);
+    const candPrio = pricingSourcePriority(priceSource);
+    const isSubmultiple = missing.length === 0 && candidate.counts && viableCompleteBases.some(other => {
+      if (other === candidate || pricingSourcePriority(other.price_source) > candPrio) return false;
+      if (!isValidSubmultiple(candidate.counts, other.counts)) return false;
+      const otherProfile = table.profile(other.model_key);
+      const otherRate = other.rates?.output ?? otherProfile?.output_usd_per_mtok;
+      const otherImp = total.output_usd * 1e6 / otherRate, otherRatio = otherImp / total.tokens;
+      const otherMeta = other.observed_samples || otherProfile?.battle_observed_samples || null;
+      const otherHint = `${String(other.model_key || '')} ${String(other.display || '')}`;
+      const otherThink = /(?:^|[- (\b])(?:thinking|reasoner|high|max|xhigh|heavy|pro-preview)(?:$|[- )\b])/i.test(otherHint)
+        && !/non-thinking|no-thinking|minimal/i.test(otherHint);
+      const otherTiers = Array.isArray(otherMeta?.tier_samples) && otherMeta.tier_samples.length ? otherMeta.tier_samples : [otherMeta];
+      const otherRawDist = Math.min(...otherTiers.map(t => computeSingleSampleDist(t, otherThink, otherImp, otherRatio)));
+      return otherRawDist <= rawDist + 0.06;
+    });
+    const submultiplePenalty = isSubmultiple ? 0.16 : 0;
+    const distance = rawDist + nonThinkingPenalty + fallbackSourcePenalty + submultiplePenalty;
+    ranked.push({model_key: candidate.model_key, label: candidate.display || candidate.model_key,
+      price_source: priceSource, output_usd_per_mtok: rate,
+      rates_complete: missing.length === 0, missing_rates: missing,
+      implied_output_tokens: implied, visible_ratio: ratio, distance});
+  }
+  ranked.sort((a, b) => a.distance - b.distance || pricingSourcePriority(a.price_source) - pricingSourcePriority(b.price_source)
+    || String(a.model_key).localeCompare(String(b.model_key)));
+  const groups = [];
+  for (const item of ranked) {
+    let group = groups.find(group => group.output_usd_per_mtok === item.output_usd_per_mtok);
+    if (!group) { group = {output_usd_per_mtok: item.output_usd_per_mtok,
+      implied_output_tokens: item.implied_output_tokens, visible_ratio: item.visible_ratio, models: []};groups.push(group); }
+    group.models.push(item);
+  }
+  const best = ranked[0];
+  const bestSamples = best ? (table.profile(best.model_key)?.battle_observed_samples || null) : null;
+  const bestMultiplier = Math.max(2, (Number(bestSamples?.output_to_visible_p50) || 1) * 4);
+  const canSuggest = !incomplete && samples.length === records.size && total.unobserved === 0
+    && total.tokens >= 1 && total.chars >= 2 && !!best
+    && best.implied_output_tokens >= Math.max(1, total.low / 4)
+    && best.implied_output_tokens <= Math.max(total.high * bestMultiplier, 4096);
+  return {...fallback, state: canSuggest ? 'available' : 'display-only', can_suggest: canSuggest,
+    ranked, groups, n_pairs: samples.length, visible_output_tokens: total.tokens,
+    visible_output_range: {low: total.low, high: total.high}, unobserved_parts: total.unobserved,
+    note: `本轮 ${samples.length} 条同消息费用与可见正文/思考/工具参数配对，输出参考约 ${total.tokens}t。${canSuggest ? '仅在勾选“只取最接近”时辅助选代表项。' : '采集不完整、样本过短或偏差过大，仅展示，不改变原选择。'}完整与缺价未排除候选都可比较已知输出单价；缺价项不冒充完整匹配。仅描述本次探针，不确认此会话后续回复的模型。隐藏推理未知；Battle 费率移用于 Agent 尚未校准，同输出单价不分型号，参考带不是计费上下界或置信区间。`};
 }
 
 async function priceFingerprintBlock(candidates, options = {}) {
@@ -1185,6 +1433,15 @@ async function priceFingerprintBlock(candidates, options = {}) {
       };
     }
     const {hard, hardOut, rateFamily} = await hardFamily(table, ids, options.costPayload);
+    let agentPriceHint = null;
+    try {
+      agentPriceHint = agentPriceOutputHint(table, hard, options);
+      const waitMs = Math.max(0, Math.min(3000, Number(options.agentHintWaitMs) || 0));
+      for (let remaining = waitMs; agentPriceHint?.state === 'not-observed' && remaining > 0; remaining -= 250) {
+        await new Promise(resolve => setTimeout(resolve, Math.min(250, remaining)));
+        agentPriceHint = agentPriceOutputHint(table, hard, options);
+      }
+    } catch { /* missing evidence, timeout or auxiliary errors never block the original result */ }
 
     /* This path needs every scored candidate for the ±10% uniqueness test. */
     const base = await costReverseBlock({candidates: ids, costPayload: options.costPayload, pageUrl: options.pageUrl, fullPriceRanking: true});
@@ -1203,6 +1460,7 @@ async function priceFingerprintBlock(candidates, options = {}) {
         evidence_label: rateFamily ? (rateFamily.price_source === 'arena-battle-observed' ? 'Battle 实测优先旁证（非定名）' : '费率族（费率结构）') : '',
         hard_filter: hardOut,
         rate_family: rateFamily,
+        agent_price_hint: agentPriceHint,
         text: rateFamily
           ? blockedRateFamilyText(rateFamily)
           : `价格指纹: 暂无可用的价格证据（${base?.note || '账单与用量没配上对'}）`,
@@ -1299,6 +1557,7 @@ async function priceFingerprintBlock(candidates, options = {}) {
       hard_filter: hardOut,
       /* v2.19.7：费率族 —— 硬筛选候选按四项费率签名分组后的结果（精确版本切不开时报到这一级）。 */
       rate_family: rateFamily,
+      agent_price_hint: agentPriceHint,
       scope,
       arena_only: false,
       hit: best,
@@ -1872,6 +2131,19 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
               netState.messageUsage = capped(netState.messageUsage, 120);
             }
           }
+        } else if (item?.kind === 'agent-price-output') {
+          try {
+            const probeId = typeof item.price_probe_id === 'string' ? item.price_probe_id : '';
+            const messageId = typeof item.message_id === 'string' ? item.message_id.slice(0, 64) : null;
+            const chars = normalizeEstimateBucket(item.chars);
+            if (messageId && chars && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(probeId)) {
+              const row = {message_id: messageId, price_probe_id: probeId, chars,
+                unobserved_parts: Math.max(0, Math.min(100000, Number(item.unobserved_parts) || 0))};
+              const existing = netState.agentPriceOutputs.find(entry => entry.message_id === messageId && entry.price_probe_id === probeId);
+              if (existing) Object.assign(existing, row);
+              else netState.agentPriceOutputs = capped([...netState.agentPriceOutputs, row], 120);
+            }
+          } catch { /* optional statistics never disrupt original evidence ingestion */ }
         } else if (item?.kind === 'transcript-estimate') {
           /* v2.14.0 Agent 转录估算：会话包没有 usage 字段时，按正文+thinking 字数估算输出 token。
              只存数字与字符计数（没有正文），供花费账本在无用量、无 /cost 时使用。
@@ -2050,7 +2322,9 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const fromExtensionPage = !sender.tab && isExtensionPage(sender.url);
       if (!fromExtensionPage && (sender.frameId !== 0 || !isAgentUrl(sender.url))) throw Error('价格指纹请求来源无效');
       const costPayload = message.costPayload && typeof message.costPayload === 'object' ? message.costPayload : null;
-      return await priceFingerprintBlock([], {costPayload, fullBank: true, pageUrl: sender.url});
+      const priceProbeId = typeof message.priceProbeId === 'string' ? message.priceProbeId.slice(0, 64) : null;
+      const agentHintWaitMs = Math.max(0, Math.min(3000, Number(message.agentHintWaitMs) || 0));
+      return await priceFingerprintBlock([], {costPayload, fullBank: true, pageUrl: sender.url, priceProbeId, agentHintWaitMs});
     })().then(reply, error => reply({error: String(error?.message || error)}));
     return true;
   }

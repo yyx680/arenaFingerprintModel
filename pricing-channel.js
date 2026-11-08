@@ -64,6 +64,12 @@ export function applyCacheRates(table, ratesDoc) {
   if (!table || !ratesDoc || typeof ratesDoc !== 'object') return table;
   const rates = ratesDoc.rates && typeof ratesDoc.rates === 'object' ? ratesDoc.rates : {};
   let applied = 0;
+  const slugFallbacks = new Map();
+  const pushFallback = (slug, item) => {
+    if (!slug) return;
+    if (!slugFallbacks.has(slug)) slugFallbacks.set(slug, []);
+    slugFallbacks.get(slug).push(item);
+  };
   for (const [key, entry] of Object.entries(rates)) {
     const profile = table.profile(key);
     if (!profile || profile.kind === 'media') continue;
@@ -72,6 +78,10 @@ export function applyCacheRates(table, ratesDoc) {
     const hasRead = nonNeg(read);
     const hasWrite = nonNeg(write);
     if (!hasRead && !hasWrite) continue;
+    const slug = canonicalModelSlug(profile.display || key) || canonicalModelSlug(key);
+    if (slug && entry?.consistent !== false) {
+      pushFallback(slug, {entry, inRate: profile.input_usd_per_mtok, outRate: profile.output_usd_per_mtok});
+    }
     // 只有实际补入字段才标记第三方来源；不能把已有官方费率误标为 OpenRouter。
     const fillRead = profile.cache_read_usd_per_mtok === null && hasRead;
     const fillWrite = profile.cache_write_usd_per_mtok === null && hasWrite;
@@ -83,6 +93,43 @@ export function applyCacheRates(table, ratesDoc) {
     profile.cache_rate_batch = entry?.batch === true;          // 来自 :batch 半价条目 → 需标注
     profile.cache_rate_consistent = entry?.consistent !== false;
     applied += 1;
+  }
+  for (const [key, entry] of Object.entries(rates)) {
+    const read = entry?.cache_read_usd_per_mtok;
+    const write = entry?.cache_write_usd_per_mtok;
+    if (!nonNeg(read) && !nonNeg(write)) continue;
+    const slug = canonicalModelSlug(key);
+    if (slug && entry?.consistent !== false) {
+      pushFallback(slug, {entry, inRate: null, outRate: null});
+    }
+  }
+  if (slugFallbacks.size && typeof table.all === 'function') {
+    for (const profile of table.all()) {
+      if (!profile || profile.kind === 'media') continue;
+      if (profile.cache_read_usd_per_mtok !== null && profile.cache_write_usd_per_mtok !== null) continue;
+      const slug = canonicalModelSlug(profile.display || profile.model_key) || canonicalModelSlug(profile.model_key);
+      const fbList = slug ? slugFallbacks.get(slug) : null;
+      const fb = Array.isArray(fbList)
+        ? (fbList.find(item => item.inRate === profile.input_usd_per_mtok && item.outRate === profile.output_usd_per_mtok)
+          || fbList.find(item => item.inRate === null && item.outRate === null)
+          || null)
+        : null;
+      if (!fb) continue;
+      if (fb.inRate !== null && fb.outRate !== null
+        && (profile.input_usd_per_mtok !== fb.inRate || profile.output_usd_per_mtok !== fb.outRate)) continue;
+      const read = fb.entry?.cache_read_usd_per_mtok;
+      const write = fb.entry?.cache_write_usd_per_mtok;
+      const fillRead = profile.cache_read_usd_per_mtok === null && nonNeg(read);
+      const fillWrite = profile.cache_write_usd_per_mtok === null && nonNeg(write);
+      if (!fillRead && !fillWrite) continue;
+      if (fillRead) profile.cache_read_usd_per_mtok = Number(read);
+      if (fillWrite) profile.cache_write_usd_per_mtok = Number(write);
+      profile.cache_rate_source = 'openrouter-public';
+      profile.cache_rate_or_id = typeof fb.entry?.or_id === 'string' ? fb.entry.or_id : null;
+      profile.cache_rate_batch = fb.entry?.batch === true;
+      profile.cache_rate_consistent = fb.entry?.consistent !== false;
+      applied += 1;
+    }
   }
   table.cache_rates = {
     applied,
@@ -178,17 +225,66 @@ export function mergeBattleObservedPrices(doc, ratesDoc) {
     });
   }
   if (!observed.size) return doc;
+  const bySlug = new Map();
+  for (const hit of observed.values()) {
+    const slug = canonicalModelSlug(hit.display || hit.model_key) || canonicalModelSlug(hit.model_key);
+    if (!slug) continue;
+    const list = bySlug.get(slug) || [];
+    list.push(hit);
+    bySlug.set(slug, list);
+  }
   let overridden = 0;
   const mergedRows = base.map(row => {
-    const hit = observed.get(row?.model_key);
+    let hit = observed.get(row?.model_key);
+    if (hit) {
+      observed.delete(row.model_key);
+    } else {
+      const slug = canonicalModelSlug(row?.display || row?.model_key) || canonicalModelSlug(row?.model_key);
+      const candidates = slug ? bySlug.get(slug) : null;
+      if (candidates && candidates.length) {
+        const rIn = num(row?.input_usd_per_mtok), rOut = num(row?.output_usd_per_mtok);
+        const rateMatched = candidates.filter(b => b.input_usd_per_mtok === rIn && b.output_usd_per_mtok === rOut);
+        const pool = rateMatched.length
+          ? rateMatched
+          : (new Set(candidates.map(b => `${b.input_usd_per_mtok}|${b.output_usd_per_mtok}`)).size === 1 ? candidates : []);
+        if (pool.length) {
+          const rowKey = String(row?.model_key || '').toLowerCase();
+          const rowBase = baseModelName(row?.model_key);
+          const primary = pool.find(b => rowKey === b.model_key || rowKey.startsWith(`${b.model_key}-`))
+            || pool.find(b => baseModelName(b.model_key) === rowBase)
+            || pool[0];
+          const sampleList = pool.map(b => b.observed_samples).filter(Boolean);
+          let mergedSamples = primary.observed_samples ? {...primary.observed_samples} : (sampleList[0] ? {...sampleList[0]} : null);
+          if (mergedSamples && sampleList.length > 1) {
+            mergedSamples.tier_samples = sampleList.map(s => ({...s}));
+            const outRatios = sampleList.map(s => Number(s.output_to_visible_p50)).filter(v => Number.isFinite(v) && v > 0);
+            const reasVals = sampleList.map(s => Number(s.reasoning_tokens_p50)).filter(v => Number.isFinite(v) && v >= 0);
+            if (outRatios.length && !(Number(mergedSamples.output_to_visible_p50) > 1.05)) {
+              mergedSamples.output_to_visible_p50 = Math.max(...outRatios);
+            }
+            if (reasVals.length) {
+              mergedSamples.reasoning_tokens_p50 = reasVals.every(v => v === 0) ? 0 : Math.max(...reasVals);
+            }
+          }
+          hit = {
+            ...primary,
+            cache_read_usd_per_mtok: primary.cache_read_usd_per_mtok ?? pool.find(b => b.cache_read_usd_per_mtok !== null)?.cache_read_usd_per_mtok ?? null,
+            cache_write_usd_per_mtok: primary.cache_write_usd_per_mtok ?? pool.find(b => b.cache_write_usd_per_mtok !== null)?.cache_write_usd_per_mtok ?? null,
+            observed_samples: mergedSamples,
+          };
+        }
+      }
+    }
     if (!hit) return row;
-    observed.delete(row.model_key);
     overridden += 1;
     return {
       ...row,
       ...hit,
+      model_key: row.model_key,
       display: row.display || hit.display,
       org: row.org || hit.org,
+      cache_read_usd_per_mtok: hit.cache_read_usd_per_mtok ?? num(row.cache_read_usd_per_mtok),
+      cache_write_usd_per_mtok: hit.cache_write_usd_per_mtok ?? num(row.cache_write_usd_per_mtok),
       arena_official_reference: {
         input_usd_per_mtok: num(row.input_usd_per_mtok),
         output_usd_per_mtok: num(row.output_usd_per_mtok),
@@ -654,6 +750,9 @@ function groupByRates(candidates) {
 export function baseModelName(modelKey) {
   let s = String(modelKey || '').toLowerCase().trim();
   if (!s) return s;
+  s = s.replace(/^[a-z0-9_.-]+\//, '');                                       // vendor/ 前缀
+  s = s.replace(/:[a-z0-9_.-]+$/, '');                                         // :batch 等后缀
+  s = s.replace(/-\d{4}-\d{2}-\d{2}$/, '');                                    // 日期戳 -2024-11-20
   s = s.replace(/-\d{8}$/, '');                                              // 日期戳 -20260910
   let prev = null;
   while (prev !== s) {
@@ -662,6 +761,34 @@ export function baseModelName(modelKey) {
   }
   s = s.replace(/-(?:max|high|xhigh|low|medium|minimal)$/, '');              // 档位词只在最后剥一次
   return s || String(modelKey || '').toLowerCase().trim();
+}
+
+/** 跨表规范化模型标识：用于把 Arena 榜单变体 key / display、Battle 实测裸 key 与 OpenRouter slug 对齐。 */
+export function canonicalModelSlug(raw) {
+  let s = String(raw || '').toLowerCase().trim();
+  if (!s) return '';
+  s = s.replace(/^[a-z0-9_.-]+\//, '');
+  s = s.replace(/^[a-z0-9_.-]+:\s+/, '');
+  s = s.replace(/:[a-z0-9_.-]+$/, '');
+  s = s.replace(/\s*\[(?:web-search|search|agent|thinking|high|max|xhigh|medium|low|minimal)\]\s*/g, ' ');
+  s = s.replace(/\s*\((?:max|high|xhigh|medium|low|minimal|thinking|agent|webdev|text|fast|preview|beta|\d{4}-\d{2}-\d{2})\)\s*/g, ' ');
+  s = s.trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-');
+  if (s === 'deepseek-v4-flash-vision-exp') return 'deepseek-v4.1-flash';
+  s = s.replace(/^deepseek-v4(?=-|$)/, 'deepseek-v4.1');
+  s = s.replace(/^(claude-(?:opus|sonnet|haiku|fable)-\d+)-(\d+)(?=-|$)/, '$1.$2');
+  s = s.replace(/^(mimo-v\d+)-(\d+)(?=-|$)/, '$1.$2');
+  s = s.replace(/^(muse-spark-\d+)-(\d+)(?=-|$)/, '$1.$2');
+  s = s.replace(/^hy-(\d+)(?=-|$)/, 'hy$1');
+  s = s.replace(/-\d{4}-\d{2}-\d{2}$/, '');
+  s = s.replace(/-\d{8}$/, '');
+  let prev = null;
+  while (prev !== s) {
+    prev = s;
+    s = s.replace(/-(?:agent|webdev|text|code|thinking|vertex|public|preview|latest|exp|codex-harness|code-arena-harness|no-system-prompt|32k|16k|beta\d*)$/, '');
+    s = s.replace(/-(?:max|high|xhigh|low|medium|minimal)$/, '');
+    s = s.replace(/-\d{8}$/, '');
+  }
+  return s || String(raw || '').toLowerCase().trim();
 }
 
 /** 硬筛选：拿分项账单在候选集（或全库）里做整数反推。
@@ -727,13 +854,44 @@ export function hardFilterByCosts(breakdown, table, options = {}) {
      `qwen3.7-plus-agent`（agent 档）单价与反推结果完全相同，若不去重会把「1 个候选」
      说成「2 个候选」，凭空把唯一解降级成多解。按**归一化后的基础名**折叠：
      剥掉 harness/effort 后缀（-agent/-webdev/-text/-code/-thinking 及档位词）+ 日期戳。 */
-  const seen = new Set();
+  const seen = new Map();
+  const seenRateCanon = new Map();
+  const seenActiveCanon = new Map();
   const uniqueCandidates = [];
   for (const c of candidates) {
     const base = baseModelName(c.model_key);
-    if (seen.has(base)) continue;
-    seen.add(base);
-    uniqueCandidates.push({...c, base_name: base});
+    const rateSig = JSON.stringify([c.rates.input, c.rates.output, c.rates.cache_write, c.rates.cache_read]);
+    const canon = canonicalModelSlug(c.display || c.model_key) || canonicalModelSlug(c.model_key);
+    const rateCanonKey = canon ? `${rateSig}|${canon}` : '';
+    const activeCanonKey = canon ? `${canon}|${c.rates.input}|${c.rates.output}|${c.counts.I}|${c.counts.O}|${c.counts.W}|${c.counts.R}` : '';
+    const existing = seen.get(base) || (rateCanonKey && seenRateCanon.get(rateCanonKey)) || (activeCanonKey && seenActiveCanon.get(activeCanonKey));
+    if (existing) {
+      if (c.observed_samples) {
+        if (!existing.observed_samples) existing.observed_samples = {...c.observed_samples};
+        const stripTiers = ({tier_samples, ...rest}) => rest;
+        const tiers = Array.isArray(existing.observed_samples.tier_samples)
+          ? existing.observed_samples.tier_samples.map(stripTiers)
+          : [stripTiers(existing.observed_samples)];
+        const seenTiers = new Set(tiers.map(t => JSON.stringify(t)));
+        const addTiers = Array.isArray(c.observed_samples.tier_samples) ? c.observed_samples.tier_samples : [c.observed_samples];
+        for (const t of addTiers) {
+          if (!t) continue;
+          const clean = stripTiers(t);
+          const sig = JSON.stringify(clean);
+          if (!seenTiers.has(sig)) {
+            seenTiers.add(sig);
+            tiers.push(clean);
+          }
+        }
+        existing.observed_samples = {...existing.observed_samples, tier_samples: tiers};
+      }
+      continue;
+    }
+    const rep = {...c, base_name: base, observed_samples: c.observed_samples ? {...c.observed_samples} : null};
+    seen.set(base, rep);
+    if (rateCanonKey) seenRateCanon.set(rateCanonKey, rep);
+    if (activeCanonKey) seenActiveCanon.set(activeCanonKey, rep);
+    uniqueCandidates.push(rep);
   }
 
   const tokenGroups = [...new Map(uniqueCandidates.map((c) => [JSON.stringify(c.counts), c.counts])).values()];

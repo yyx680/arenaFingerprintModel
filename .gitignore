@@ -15,3 +15,7 @@ _*
 # 系统 / 编辑器
 .DS_Store
 Thumbs.db
+
+# Windows NUL 重定向残留 / AI 助手会话记忆
+nul
+.workbuddy-ai/

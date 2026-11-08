@@ -6,7 +6,7 @@ const read = name => fs.readFileSync(new URL('../' + name, import.meta.url), 'ut
 /* ★ 本沙箱是极简的：background.js 的 import 全被剥掉，所以**顶层**引用到的任何导入符号
    都必须在这里补一份，否则整个脚本在求值阶段就 ReferenceError（本测试只想测 isAgentUrl/cleanOutputs）。
    v2.19.5 起顶层多引用了 CONSISTENT_RATIO（价格指纹窗口的 z 刻度除数）。 */
-const bg = vm.createContext({URL, CONSISTENT_RATIO: 1.6, createBalanceReader: () => ({}), chrome: {runtime: {getURL: (p) => p, onMessage: {addListener() {}}, onConnect: {addListener() {}}}, tabs: {onRemoved: {addListener() {}}}, storage: {local: {remove: () => Promise.resolve(), get: () => Promise.resolve({}), set: () => Promise.resolve()}}}});
+const bg = vm.createContext({URL, CONSISTENT_RATIO: 1.6, registerRecaptchaAnchor: () => {}, createBalanceReader: () => ({}), chrome: {runtime: {getURL: (p) => p, onMessage: {addListener() {}}, onConnect: {addListener() {}}}, tabs: {onRemoved: {addListener() {}}}, storage: {local: {remove: () => Promise.resolve(), get: () => Promise.resolve({}), set: () => Promise.resolve()}}}});
 vm.runInContext(read('background.js').replace(/^import .*;\r?\n/gm, '') + '\nglobalThis.api={isAgentUrl,cleanOutputs};', bg);
 const {isAgentUrl,cleanOutputs}=bg.api;
 test('background accepts Work and legacy Agent, rejects other origins and path prefixes',()=>{

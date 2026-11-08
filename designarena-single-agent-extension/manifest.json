@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Scope · DesignArena 单 Agent 抽卡",
+  "short_name": "Scope",
+  "version": "1.1.0",
+  "description": "用户确认后，通过绑定的可见网页控件进行有上限的单 Agent 自动抽卡。支持只读观察、费用确认、轮次限制与随时停止。",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_title": "Scope · 单 Agent 自动抽卡",
+    "default_popup": "auto.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none';"
+  }
+}

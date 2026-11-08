@@ -7,7 +7,7 @@ let lastDrawSignature='',lastLedgerRowsSignature='';
 const pendingRequests=new Map();
 
 const ARENA_ORIGIN_RE=/^https:\/\/(?:canary\.)?arena\.ai$/; // 生产 + 预发布 canary
-function agentUrl(value){try{const url=new URL(value);return ARENA_ORIGIN_RE.test(url.origin)&&/^\/(?:agent|work)(?:\/|$)/.test(url.pathname);}catch{return false;}}
+function agentUrl(value){try{const url=new URL(value);return ARENA_ORIGIN_RE.test(url.origin)&&/^\/(?:agent|work|c)(?:\/|$)/.test(url.pathname);}catch{return false;}} // v2.19.10：补 Arena 新会话路由 /c/<id>
 function clock(iso){const date=iso?new Date(iso):null;return date&&Number.isFinite(date.getTime())?`${date.getMonth()+1}-${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`:'—';}
 
 // v2.8.1：置信集 >1 时显示「家族 + 候选集」，混合/漂移时挂提示，弱匹配显示「未定」，不再无条件报单一模型名。

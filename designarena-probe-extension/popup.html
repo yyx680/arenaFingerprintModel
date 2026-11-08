@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>DesignArena 探针</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header>
+  <h1>DesignArena 探针</h1>
+  <span id="live-dot" class="dot" title="监听中"></span>
+</header>
+
+<section class="card">
+  <h2>登录凭据(Bearer)</h2>
+  <div id="bearer-box" class="mono dim">未捕获 —— 请打开并登录 designarena.ai</div>
+  <div class="row">
+    <button id="btn-copy-bearer" disabled>复制 Bearer</button>
+    <span id="bearer-exp" class="dim"></span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Arena 运行 Token(public-access-token)</h2>
+  <div id="pub-box" class="mono dim">未捕获 —— 该 token 由 Arena 运行时随响应头下发;捕获后会<b>自动</b>探 Trigger.dev</div>
+  <div class="row">
+    <button id="btn-copy-pub" disabled>复制 Token</button>
+    <button id="btn-probe-pub" disabled>↻ 重新探测</button>
+  </div>
+  <div id="pub-auto"></div>
+</section>
+
+<section class="card">
+  <h2>捕获到的会话(捕获后自动反查身份)</h2>
+  <div id="sessions" class="dim">暂无。在网页端(mode=pro / agent)发起一次生成,这里会自动出结果。</div>
+</section>
+
+<section class="card">
+  <h2>日志</h2>
+  <div id="log" class="log dim"></div>
+</section>
+
+<footer class="row">
+  <button id="btn-export">导出 JSON</button>
+  <button id="btn-clear" class="danger">清空数据</button>
+</footer>
+
+<script src="popup.js"></script>
+</body>
+</html>

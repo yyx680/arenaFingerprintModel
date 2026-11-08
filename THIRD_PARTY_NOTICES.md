@@ -16,6 +16,23 @@ Included files:
 - `modeltrace-bank.json`
 - `tests/fixtures/gpt-6-astra-three.json`
 
+## Fingerpoint Detector (lmfpd)
+
+The secondary fingerprint channel scoring core and the bundled reference data are derived from:
+
+- Project: lm-detector / lmfpd-sdk
+- Author: xqy2006 (Ikaleio)
+- Source: https://github.com/Ikaleio/lm-detector , https://lm.ikale.io
+- Package: `lmfpd-sdk@0.2.0`
+- License: MIT — see `LICENSE-LMFPD`
+
+Included files:
+
+- `lmfpd-channel.js` (ported scoring core: shared-detector-v2 ranker, sequence-shape gate, calibrated ranking)
+- `lmfpd-data/unified_bank.json` and `lmfpd-data/shared_detector.bin` (reference bank snapshot built 2026-11-03, refreshed by `tools/fetch-lmfpd-data.mjs`)
+
+The channel is display-only cross-validation: it never influences the primary fingerprint status or session renaming. Replies are scored locally; no reply text is sent to lm.ikale.io.
+
 ## WhatsMyLLM methodology and optional data
 
 The input gates and open-set thresholds implement the public methodology described at:
