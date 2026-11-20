@@ -2,10 +2,14 @@
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vodka-Arena-Model</title><link rel="stylesheet" href="popup.css"></head>
 <body>
-  <header><span class="mark">V</span><div><h1>Vodka-Arena-Model</h1><p>MODEL INTELLIGENCE · v2.19.12</p></div></header>
+  <header><span class="mark">V</span><div><h1>Vodka-Arena-Model</h1><p>MODEL INTELLIGENCE · v2.19.13</p></div></header>
   <section id="unavailable" class="notice" role="status" hidden><span id="connection-message">请先打开或刷新一个 Arena Agent 页面。</span> <button id="reconnect" type="button">重新连接</button></section>
   <section id="controls">
-    <div class="draw-grid"><label for="mode">识别模式</label><select id="mode"><option value="price">价格指纹</option><option value="quick">数字指纹</option><option value="combined">组合 · 数字 + 价格</option></select><label for="rename-nearest">改名（最接近）</label><input id="rename-nearest" type="checkbox" title="单次识别和抽卡共用；候选可能不准，不勾选就不改名"></div>
+    <div class="draw-grid"><label for="mode">识别模式</label><select id="mode"><option value="quick">数字指纹（lm.ikale.io）</option><option value="price">价格指纹</option><option value="combined">组合 · 数字 + 价格</option></select><label for="rename-nearest">改名（最接近）</label><input id="rename-nearest" type="checkbox" title="单次识别和抽卡共用；候选可能不准，不勾选就不改名"></div>
+    <section class="balance" style="margin-top:0;margin-bottom:10px">
+      <div class="balance-row"><span id="lmfpd-bank-text">lm.ikale.io 指纹库 · 读取中…</span><button id="lmfpd-refresh" type="button">刷新指纹库</button></div>
+      <p id="lmfpd-bank-note" class="balance-note" hidden></p>
+    </section>
     <section class="draw">
       <h2>自动抽卡 <span>New Chat 循环</span></h2>
       <div class="draw-grid">
@@ -20,11 +24,11 @@
       <p id="draw-progress" class="draw-note"></p>
       <div id="draw-results" class="results"></div>
     </section>
-    <p class="warning">点击即发送真实消息。选择价格指纹、数字指纹或组合；勾选改名时采用最接近候选（并非确定识别），未勾选只识别。组合在数字候选中结合价格排序。</p>
+    <p class="warning">点击即发送真实消息。默认采用 lm.ikale.io 指纹库（自动补满 3 题获取校准置信度）；也可下拉切价格指纹或组合模式，未勾选改名只识别。</p>
     <div class="primary-actions"><button id="run-quick" class="primary" disabled>开始识别</button><button id="run-precise" disabled>精准识别 · 3题全问</button></div>
     <div class="minor-actions"><button id="append" disabled>再补 1 题</button><button id="stop" disabled>停止</button><button id="clear" disabled>清除结果</button></div>
     <p id="progress" class="progress" role="status">正在读取当前页状态…</p>
-    <section id="result" class="result" hidden><div class="result-head"><b id="model"></b><span id="badge"></span></div><p id="metrics"></p><small id="bank"></small></section>
+    <section id="result" class="result" hidden><div class="result-head"><b id="model"></b><span id="badge"></span></div><p id="metrics"></p><small id="bank"></small><p id="result-note" hidden></p></section>
     <section class="balance">
       <div class="balance-row"><span>每日额度剩余</span><b id="balance-value">—</b><button id="balance-refresh">刷新</button></div>
       <p id="balance-note" class="balance-note">额度来自 arena.ai/api/me/pulse（百分比）</p>

@@ -55,7 +55,7 @@
   const HOST_ID='arena-model-probe-standalone';
   const PREFS_KEY='amp.draw.prefs.v3';
   const LEGACY_PREFS_KEY='amp.draw.prefs.v2';
-  const DEFAULTS=Object.freeze({rounds:5,mode:'price',minPulse:0,blockThinking:false,autoTopUp:true,renameAnyway:false,forceBest:false,sceneChannel:true,priceChannel:false});
+  const DEFAULTS=Object.freeze({rounds:5,mode:'quick',minPulse:0,blockThinking:false,autoTopUp:true,renameAnyway:false,forceBest:false,sceneChannel:true,priceChannel:false});
   const MODE_LABEL=Object.freeze({quick:'数字指纹',precise:'数字指纹 · 精准 3 题',price:'价格指纹',combined:'组合 · 数字 + 价格'});
   const draw={running:false,cancelled:false,total:0,round:0,completed:0,failed:0,renamed:0,blocked:0,deleted:0,phase:'idle',note:'',results:[]};
   let prefs={...DEFAULTS};
@@ -65,6 +65,7 @@
   let pos=null,dragState=null;
   const POS_KEY='amp.hud.pos.v1';
   let runOneButton,runAllButton,runPriceButton,stopButton,clearButton,progressNode,resultNode,resultModel,resultBadge,resultMetrics,resultBank,resultLmfpd,traceNode,compactText;
+  let lmfpdBarText,lmfpdRefreshButton;
   let drawInput,drawMode,drawMinPulse,drawBlockThinking,drawAutoTopUp,drawRenameAnyway,drawForceBest,drawSceneChannel,drawStartButton,drawStopButton,drawProgressNode,drawResultsNode,balanceNode,balanceNote,balanceButton,diagnoseButton,appendButton;
   /* v2.13.2 花费账本节点 */
   let ledgerBox,ledgerSummary,ledgerRatio,ledgerTable,ledgerNote,ledgerButton,ledgerToggle;
@@ -76,6 +77,7 @@
   let starting='',running=false,cancelled=false,sent=false,targetSession=null,phase='idle',progress='点击即发送真实探针，不再弹出确认';
   let pendingPrompt='';
   let balanceInfo=null,balanceError='',balanceLoading=false;
+  let lmfpdBankInfo=null,lmfpdRefreshing=false,lmfpdRefreshNote='';
   /* v2.13.2 花费账本状态：data 来自后台 AMP_LEDGER；展开明细时才拉取。 */
   const ledgerState={data:null,error:'',loading:false,expanded:false,at:0,costProbe:null,requestId:0};
   /* v2.19.1：最近一次价格指纹裁决（价格模式 或 价格旁证通道）—— 供「价格指纹」页签展示。 */
@@ -171,6 +173,7 @@
     return value;
   }
   const fatal=message=>Object.assign(Error(message),{fatal:true});
+  const isNum=v=>typeof v==='number'?Number.isFinite(v):(typeof v==='string'&&v.trim()!==''&&Number.isFinite(Number(v)));
   const pctText=value=>typeof value==='number'&&Number.isFinite(value)?(Math.round(value*10)/10)+'%':'—';
   const clock=iso=>{const date=iso?new Date(iso):null;return date&&Number.isFinite(date.getTime())?`${date.getMonth()+1}-${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`:'—';};
 
@@ -188,12 +191,40 @@
   /* ---------- v2.7.0 本机 scene 通道 + 本机标定（全部只存本机） ---------- */
   const SCENE_KEY='amp.scene.bank.v1';
   const STATS_KEY='amp.local.stats.v1';
-  let sceneBank={clusters:[],byPrompt:{}},localStats={rounds:0,clear:0,fits:[],seps:[]};
-  async function loadLocalState(){try{const items=await storageGet([SCENE_KEY,STATS_KEY,COST_TAB_KEY,POS_KEY]);const bank=items&&items[SCENE_KEY];const stats=items&&items[STATS_KEY];const tab=items&&items[COST_TAB_KEY];const savedPos=items&&items[POS_KEY];if(savedPos&&Number.isFinite(Number(savedPos.left))&&Number.isFinite(Number(savedPos.top)))pos={left:Number(savedPos.left),top:Number(savedPos.top)};if(tabs[tab])selectTab(tab);if(bank&&typeof bank==='object'){sceneBank={clusters:Array.isArray(bank.clusters)?bank.clusters.slice(0,60):[],byPrompt:bank.byPrompt&&typeof bank.byPrompt==='object'?bank.byPrompt:{}};}if(stats&&typeof stats==='object')localStats={rounds:Number(stats.rounds)||0,clear:Number(stats.clear)||0,fits:Array.isArray(stats.fits)?stats.fits.slice(-40):[],seps:Array.isArray(stats.seps)?stats.seps.slice(-40):[]};}catch{}}
+  let sceneBank={clusters:[],byPrompt:{}},localStats={rounds:0,clear:0,probs:[],fits:[],seps:[]};
+  async function loadLocalState(){try{const items=await storageGet([SCENE_KEY,STATS_KEY,COST_TAB_KEY,POS_KEY]);const bank=items&&items[SCENE_KEY];const stats=items&&items[STATS_KEY];const tab=items&&items[COST_TAB_KEY];const savedPos=items&&items[POS_KEY];if(savedPos&&Number.isFinite(Number(savedPos.left))&&Number.isFinite(Number(savedPos.top)))pos={left:Number(savedPos.left),top:Number(savedPos.top)};if(tabs[tab])selectTab(tab);if(bank&&typeof bank==='object'){sceneBank={clusters:Array.isArray(bank.clusters)?bank.clusters.slice(0,60):[],byPrompt:bank.byPrompt&&typeof bank.byPrompt==='object'?bank.byPrompt:{}};}if(stats&&typeof stats==='object')localStats={rounds:Number(stats.rounds)||0,clear:Number(stats.clear)||0,probs:Array.isArray(stats.probs)?stats.probs.slice(-40):[],fits:Array.isArray(stats.fits)?stats.fits.slice(-40):[],seps:Array.isArray(stats.seps)?stats.seps.slice(-40):[]};}catch{}}
   const saveSceneBank=async()=>{try{await storageSet({[SCENE_KEY]:{clusters:sceneBank.clusters.slice(0,60),byPrompt:sceneBank.byPrompt||{},updatedAt:Date.now()}});}catch{}};
-  const saveLocalStats=async()=>{try{await storageSet({[STATS_KEY]:{rounds:localStats.rounds,clear:localStats.clear,fits:localStats.fits.slice(-40),seps:localStats.seps.slice(-40)}});}catch{}};
+  const saveLocalStats=async()=>{try{await storageSet({[STATS_KEY]:{rounds:localStats.rounds,clear:localStats.clear,probs:localStats.probs.slice(-40),fits:localStats.fits.slice(-40),seps:localStats.seps.slice(-40)}});}catch{}};
   const medianOf=list=>{if(!list||!list.length)return null;const sorted=[...list].sort((left,right)=>left-right);return sorted[Math.floor(sorted.length/2)];};
-  const localSummary=()=>{const rate=localStats.rounds?Math.round(100*localStats.clear/localStats.rounds):0;const fit=medianOf(localStats.fits);const sep=medianOf(localStats.seps);return `本机 ${localStats.rounds} 轮 · 清晰 ${rate}%${fit===null?'':` · 拟合中位 ${fit.toFixed(3)}`}${sep===null?'':` · 分离中位 ${sep.toFixed(3)}`}`;};
+  const localSummary=()=>{const rate=localStats.rounds?Math.round(100*localStats.clear/localStats.rounds):0;const prob=medianOf(localStats.probs);return `本机 ${localStats.rounds} 轮 · 高置信 ${rate}%${prob===null?'':` · 置信中位 ${(prob*100).toFixed(0)}%`}`;};
+  const shortDate=iso=>{const m=String(iso||'').match(/^\d{4}-\d{2}-\d{2}/);return m?m[0]:'';};
+  const formatLmfpdBankLabel=info=>info?`lm.ikale.io 指纹库 · ${info.models||0} 模型 · ${shortDate(info.built_at)||'—'}${info.origin==='remote'?'（在线缓存）':'（内置）'}`:'lm.ikale.io 指纹库 · 读取中…';
+  async function loadLmfpdStatus(){
+    try{
+      const res=await chrome.runtime.sendMessage({type:'AMP_LMFPD_STATUS'});
+      if(res?.ok&&res?.info){lmfpdBankInfo=res.info;paint();}
+    }catch{}
+  }
+  async function refreshLmfpdBank(force=false){
+    if(lmfpdRefreshing)return lmfpdBankInfo;
+    lmfpdRefreshing=true;lmfpdRefreshNote='正在从 lm.ikale.io 同步最新指纹库…';paint();
+    try{
+      const res=await chrome.runtime.sendMessage({type:'AMP_LMFPD_REFRESH',force:force===true});
+      if(!res||res.ok===false)throw Error(res?.error||'刷新失败');
+      if(res.info)lmfpdBankInfo=res.info;
+      const dateText=shortDate(res.info?.built_at);
+      if(res.up_to_date){
+        lmfpdRefreshNote=`已是最新 · ${res.info?.models||0} 模型${dateText?`（${dateText}）`:''}`;
+      }else{
+        lmfpdRefreshNote=`已更新至 ${res.info?.models||0} 模型${dateText?`（${dateText}）`:''}${res.persisted===false?'（仅内存生效）':''}`;
+      }
+    }catch(error){
+      lmfpdRefreshNote=`刷新失败：${error?.message||error||'未知原因'}`;
+    }finally{
+      lmfpdRefreshing=false;paint();
+    }
+    return lmfpdBankInfo;
+  }
   function sceneStore(){return sceneBank.byPrompt||(sceneBank.byPrompt={});}
   function rememberScene(scene,label){
     const store=sceneStore();
@@ -413,9 +444,26 @@
     syncHudSession();const epoch=hudEpoch;
     const raw=[result?.nearest,...(result?.candidates||result?.top3||[])].filter((c,i,all)=>c?.id&&all.findIndex(other=>other?.id===c.id)===i).slice(0,40);
     const numericOnly=mode!=='price'&&mode!=='combined';
+    if(numericOnly){
+      if(!result||!result.nearest?.id||result.decision==='not_model'||result.decision==='unscorable'){
+        return {label:null,id:null,kind:'lmfpd-inconclusive',note:result?.signals?.evidence?.reason||'暂无可用 lm.ikale.io 指纹结果'};
+      }
+      const rawProb=result.signals?.probability;
+      const bankModels=Number(result.bank_models)||0;
+      const low=result.signals?.low_confidence===true;
+      const anomalous=Array.isArray(result.signals?.anomalous_samples)&&result.signals.anomalous_samples.length>0;
+      const probText=isNum(rawProb)?`置信 ${(Number(rawProb)*100).toFixed(1)}%`:`部分样本 ${result.used_outputs||0}/3`;
+      const warnText=[anomalous?'样本分布异常':'',low?'低置信 <75%':''].filter(Boolean).join(' · ');
+      return {
+        label:result.nearest.display_name||result.nearest.id,
+        id:result.nearest.id,
+        kind:'lmfpd',
+        note:`lm.ikale.io（${bankModels} 模型）· ${probText}${warnText?` · ${warnText}`:''}`,
+      };
+    }
     let candidates=[];
     let candidateNote='';
-    if(mode!=='price'&&raw.length){
+    if(mode==='combined'&&raw.length){
       try{
         const prices=await chrome.runtime.sendMessage({type:'AMP_PRICING',ids:raw.map(c=>c.id)});
         const arenaIds=new Set((prices?.candidates||[]).filter(c=>c.arena_listed===true).map(c=>c.id));
@@ -424,19 +472,8 @@
       }catch{candidateNote='当前模式候选价目读取失败';}
       syncHudSession();if(epoch!==hudEpoch||active!==session())return null;
     }
-    if(numericOnly){
-      const nearest=candidates[0];
-      const decision=result?.signals?.decision||result?.decision||null;
-      const candidate=nearest?.id?{label:nearest.display_name||nearest.id,id:nearest.id,kind:'numeric',note:'数字指纹最近候选（非确定识别）'}:null;
-      if(!candidate)return {label:null,id:null,kind:'numeric-inconclusive',note:candidateNote||'没有可用数字结果'};
-      const confident=nearest.id===result?.nearest?.id&&result?.status==='clear'&&decision?.set_size===1&&!decision?.off_reference;
-      if(confident&&candidate)return {...candidate,kind:'numeric-clear',note:'数字指纹清晰、统计置信集唯一且非混合/漂移（不等同于 provider trace 确认）'};
-      if(prefs.forceBest)return {...candidate,kind:'forced-best',forced:true,note:`用户已勾选“只取最接近”：强制定名为 ${candidate.label}；原数字证据仍有歧义，并非证据自然唯一`};
-      if(nearest.id!==result?.nearest?.id&&!prefs.renameAnyway)return {label:null,id:null,kind:'numeric-inconclusive',note:`原数字最近参考不在当前模式价目中；池内候选 ${candidate.label} 不能继承原置信结论`};
-      return prefs.renameAnyway?candidate:null;
-    }
-    const nearest=candidates[0];
-    const numeric=nearest?{label:nearest.display_name||nearest.id,id:nearest.id,note:'Arena 模型池内数字最接近（候选排序，非确定识别）'}:null;
+    const nearest=candidates[0]||result?.nearest||null;
+    const numeric=nearest?.id?{label:nearest.display_name||nearest.id,id:nearest.id,kind:'lmfpd',note:'lm.ikale.io 指纹首选（组合无有效账单回退）'}:null;
     if(mode==='price'||!numeric){
       const pm=await priceModeFor(active);
       let choice=priceChoice(pm?.fingerprint);
@@ -460,54 +497,61 @@
     syncHudSession();if(epoch!==hudEpoch||active!==session())return null;
     const ranked=[];
     if(!reverse?.blocked&&!reverse?.error&&reverse?.exact_usage===true){
+      const scoreValues=candidates.map(c=>Number(c?.score)).filter(Number.isFinite);
+      const maxScore=scoreValues.length?Math.max(...scoreValues):0;
       for(const hit of reverse?.hits||[]){
         const candidate=candidates.find(c=>c.id===hit.model_key);
-        const rawFit=candidate?.fit??(candidate?.id===result?.nearest?.id?result?.signals?.fit:null);
-        const fit=rawFit==null?NaN:Number(rawFit);
-        if(!candidate||!Number.isFinite(fit)||fit<=0||hit.complete!==true||!Number.isFinite(Number(hit.ratio))||!(Number(hit.ratio)>0))continue;
+        const prob=candidate?.probability;
+        const rawScore=candidate?.score;
+        const prior=isNum(prob)&&Number(prob)>0
+          ?Number(prob)
+          :(isNum(rawScore)?Math.exp(Math.min(0,Number(rawScore)-maxScore)):NaN);
+        if(!candidate||!Number.isFinite(prior)||prior<=0||hit.complete!==true||!Number.isFinite(Number(hit.ratio))||!(Number(hit.ratio)>0))continue;
         const z=Math.log(Number(hit.ratio))/Math.log(1.6);
-        const score=Math.max(0,Math.min(1,fit))*Math.exp(-0.5*z*z)*(hit.complete?1:0.6);
+        const score=Math.max(0,Math.min(1,prior))*Math.exp(-0.5*z*z)*(hit.complete?1:0.6);
         ranked.push({candidate,hit,score});
       }
     }
     ranked.sort((a,b)=>b.score-a.score);
     if(!ranked.length){
-      const note=reverse?.exact_usage===false?'价格 token 仅为字符估算，不参与数字联合评分':reverse?.note||reverse?.error||'缺少精确 usage、完整费率或有效数字分数';
-      lastPriceFingerprint={...reverse,separable:false,scope:'candidates',reason:'no-price',text:'组合模式：缺少可靠价格证据，仅展示数字候选',note};
-      return {...numeric,note:`组合模式：缺少可靠价格证据，仅展示数字候选（非组合确认） · ${note}`};
+      const note=reverse?.exact_usage===false?'价格 token 仅为字符估算，不参与数字联合评分':reverse?.note||reverse?.error||'缺少精确 usage、完整费率或有效指纹权重';
+      lastPriceFingerprint={...reverse,separable:false,scope:'candidates',reason:'no-price',text:'组合模式：缺少可靠价格证据，仅采用 lm.ikale.io 指纹首选',note};
+      return {...numeric,note:`组合模式：缺少可靠价格证据，采用 lm.ikale.io 首选 · ${note}`};
     }
     const best=ranked[0],runner=ranked[1];
-    const choice={label:best.candidate.display_name||best.candidate.id,id:best.candidate.id,note:`Arena 模型池内组合最接近 · 数字拟合 × 价格贴合度 ${best.score.toFixed(4)}（启发式排序，非确定识别）`};
+    const choice={label:best.candidate.display_name||best.candidate.id,id:best.candidate.id,note:`Arena 模型池内组合最接近 · lm.ikale.io × 价格贴合度 ${best.score.toFixed(4)}（启发式排序，非确定识别）`};
     lastPriceFingerprint={separable:false,scope:'candidates',reason:'combined-ranking',evidence_label:'组合排序',hit:{...best.hit,label:choice.label},runner_up:runner?.hit||null,hard_filter:reverse?.hard_filter,rate_family:reverse?.rate_family,suggestion:choice,text:choice.note,note:'在数字候选中联合排序；缺失单价的模型不参与组合评分'};
     return prefs.forceBest?forceBestChoice(lastPriceFingerprint,choice,'组合'):choice;
   }
-  /* v2.19.11 lmfpd 改名权威：scored（三条已评分、带库内校准）时闭集首选直接作为改名目标；
-     partial（不足三条）只在主指纹非清晰时才顶位。只影响改名目标与最终标签，
-     record.recognition 仍如实反映各通道自身判断。 */
+  /* v2.19.13 lm.ikale.io 为唯一主数字指纹引擎：scored（三条校准）和 partial（1-2 条）均以它为准，
+     not_model / unscorable 返回 null（不改名）。 */
   const lmfpdPickOf=result=>{
     const lm=result?.lmfpd;
     if(!lm?.prediction_name)return null;
     const kind=lm.decision==='scored'?'scored':lm.decision==='partial'?'partial':null;
-    if(!kind||(kind==='partial'&&result?.status==='clear'))return null;
-    const agree=String(lm.agreement||'').replace(/^lmfpd /,'');
+    if(!kind)return null;
+    const bankModels=Number(lm.bank_models||result?.bank_models)||0;
+    const rawProb=lm.probability;
+    const detail=isNum(rawProb)?`置信 ${(Number(rawProb)*100).toFixed(1)}%`:`部分样本 ${lm.used_outputs||0}/3`;
     return {label:lm.prediction_name,id:lm.prediction||null,kind:'lmfpd',
-      note:`lmfpd ${kind==='scored'?'闭集首选':'部分样本倾向'}（66 模型库）${agree?` · ${agree}`:''}`};
+      note:`lm.ikale.io ${kind==='scored'?'校准排名':'部分样本排名'}（${bankModels} 模型库 · ${detail}）`};
   };
   async function finishRecognition(active,record,mode,index=null){
     syncHudSession();const epoch=hudEpoch;
     const choice=await recognitionFor(active,record.result,mode);
-    syncHudSession();if(epoch!==hudEpoch||active!==session())return {sessionId:active,label:'会话已切换',verdict:'旧结果已丢弃',status:'stale',renamed:false,renameNote:'会话已切换',fit:null,separation:null};
+    syncHudSession();if(epoch!==hudEpoch||active!==session())return {sessionId:active,label:'会话已切换',verdict:'旧结果已丢弃',status:'stale',renamed:false,renameNote:'会话已切换',fit:null,separation:null,prob:null};
     const result=record.result;
     const numericOnly=mode!=='price'&&mode!=='combined';
-    const lmPick=lmfpdPickOf(result),renameChoice=lmPick||choice;
+    const lmPick=lmfpdPickOf(result);
+    const renameChoice=numericOnly?(lmPick||(choice?.id?choice:null)):(lmPick||choice);
     record.recognition=numericOnly?null:{mode,label:choice?.label||null,id:choice?.id||null,forced:choice?.kind==='forced-best',note:choice?.note||'Arena 官方价目内没有可用候选'};
-    const keepClassifierVerdict=numericOnly&&!choice;
+    const keepClassifierVerdict=numericOnly&&!choice?.id;
     const fallbackLabel=keepClassifierVerdict?resultLabelOf(result):'暂无候选';
-    const verdict=(lmPick?.note||choice?.note)||(keepClassifierVerdict?verdictOf(result):'没有可用候选');
+    const verdict=(numericOnly?(lmPick?.note||choice?.note):(choice?.note||lmPick?.note))||(keepClassifierVerdict?verdictOf(result):'没有可用候选');
     let renamed=false,renameNote=prefs.renameAnyway?'无可用候选，未改名':'未勾选改名';
     const announce=(phase,text)=>index===null?publish(phase,text,record):publishDraw(phase,`第 ${index} 轮：${text}`);
     if(renameChoice?.label&&active&&prefs.renameAnyway&&!cancelled){
-      announce('renaming',`按${renameChoice.kind==='lmfpd'?'lmfpd 闭集首选':renameChoice.kind==='forced-best'?'用户强制最优':renameChoice.kind==='rate-family'?'同价组代表项':renameChoice.kind==='hard-hint'?'费率旁证候选':'最接近候选'}重命名为 ${renameChoice.label}…`);
+      announce('renaming',`按${renameChoice.kind==='lmfpd'?'lm.ikale.io 首选':renameChoice.kind==='forced-best'?'用户强制最优':renameChoice.kind==='rate-family'?'同价组代表项':renameChoice.kind==='hard-hint'?'费率旁证候选':'最接近候选'}重命名为 ${renameChoice.label}…`);
       try{
         const done=await globalThis.ArenaProbeRename.rename({sessionId:active,title:renameChoice.label,isCurrent:()=>!cancelled&&session()===active});
         renamed=true;record.renameTitle=done.title;record.renameError='';renameNote=done.unchanged?'名称已一致':`已重命名为 ${done.title}`;
@@ -515,7 +559,15 @@
     }
     const finalLabel=lmPick?.label||choice?.label||(keepClassifierVerdict?resultLabelOf(result):fallbackLabel);
     announce('done',`${MODE_LABEL[mode]||MODE_LABEL.quick}：${finalLabel} · ${verdict} · ${renameNote}`);
-    return {sessionId:active,label:finalLabel,verdict,status:mode==='price'?'price':mode==='combined'?'combined':result?.status||'none',renamed,renameNote,fit:Number.isFinite(Number(result?.signals?.fit))?Number(result.signals.fit):null,separation:Number.isFinite(Number(result?.signals?.separation))?Number(result.signals.separation):null,top3:topThreeOf(result),byPrice:mode==='price'};
+    return {
+      sessionId:active,label:finalLabel,verdict,
+      status:mode==='price'?'price':mode==='combined'?'combined':result?.status||'none',
+      renamed,renameNote,
+      prob:isNum(result?.signals?.probability)?Number(result.signals.probability):null,
+      fit:isNum(result?.signals?.fit)?Number(result.signals.fit):null,
+      separation:isNum(result?.signals?.separation)?Number(result.signals.separation):null,
+      top3:topThreeOf(result),byPrice:mode==='price',
+    };
   }
   /* v2.19.0：价格指纹结论的**披露附注** —— 借鉴参考扩展 cost-browser-extension 的保守措辞。
      三件事必须说清：① 硬筛选结果与来源；② 单次调用口径未验证；③ 缓存费率非官方口径。 */
@@ -624,6 +676,7 @@
       ledgerError:ledgerState.error,ledgerLoading:ledgerState.loading,
       /* v2.19.1：价格指纹面板的数据源 —— 最近一次价格裁决结果（含 hard_filter / evidence / hit）。 */
       price_fingerprint:lastPriceFingerprint,
+      lmfpdBank:lmfpdBankInfo,lmfpdRefreshing,lmfpdRefreshNote,
     };
   }
   function publish(nextPhase,text,record=null){if(record&&session()&&records.get(session())!==record)return;phase=nextPhase;progress=text;if(record){record.phase=nextPhase;record.progress=text;}paint();}
@@ -853,7 +906,7 @@
     publish('scoring',`${label}第 ${probeIndex+1} 题捕获 ${values.length} 个数字，正在本机评分…`,record);
     const result=await score(record);
     if(result){
-      const verdict={clear:'清晰匹配',close:'同族近似',weak:'弱匹配'}[result.status]||result.status;
+      const verdict=badgeTextOf(result);
       publish('scored',`${label}${verdict}：${headlineOf(result)} · 已用 ${result.used_outputs}/${record.samples.length} 条有效回复`,record);
     }else publish('scored',`${label}${record.lastCheck?.message||'本条回复未通过计分门控'}`,record);
     pendingPrompt='';sent=false;return {record,sessionId:active};
@@ -991,7 +1044,7 @@
       const goal=priceMode?record.samples.length+1:(precise?3:(prefs.autoTopUp?3:record.samples.length+1));
       starting='';running=true;sent=false;targetSession=active;
       if(foldOn)unfoldAll();
-      publish('checking',priceMode?'价格指纹模式：发 1 条简短计算任务取官方账单，在 Arena 模型池里按价格裁决（勾选改名时采用最接近候选）':(combinedMode?'组合模式：数字候选按数字拟合 × 价格贴合度联合排序；勾选改名时采用最接近候选':precise?'精准模式：依次问完三道题（3 条回复）':prefs.autoTopUp?'快速模式：随机 1 题；判定不是“清晰匹配”时自动补题加强证据（最多 3 题）':`快速模式：随机发第 ${first[0]+1} 题（1 条回复）`),record);
+      publish('checking',priceMode?'价格指纹模式：发 1 条简短计算任务取官方账单，在 Arena 模型池里按价格裁决（勾选改名时采用最接近候选）':(combinedMode?'组合模式：在 lm.ikale.io 候选中联合价格贴合度排序；勾选改名时采用最接近候选':precise?'精准模式：依次问完三道题（3 条回复，出 lm.ikale.io 校准置信度）':prefs.autoTopUp?'快速模式：先问 1 题再自动补满 3 题以获取 lm.ikale.io 校准置信度':`快速模式：随机发第 ${first[0]+1} 题（1 条回复，部分样本排名）`),record);
       while(record.samples.length<goal){
         const plan=priceMode?[0]:planFor(record,precise?'precise':'quick');
         if(!plan.length)break;
@@ -1005,8 +1058,11 @@
         }
         record=step.record;active=step.sessionId;targetSession=active;
         if(priceMode)break;   // 价格模式只发 1 题，拿完账单即裁决
-        if(!precise&&prefs.autoTopUp&&record.result?.status==='clear'){publish('waiting',`判定清晰（${record.result.nearest.display_name}），提前收工：不再补题`,record);break;}
-        if(record.samples.length<goal){publish('waiting',`已捕获 ${record.samples.length} 条证据，准备下一题…`,record);await sleep(1200);}
+        if(!precise&&prefs.autoTopUp){
+          if(record.result?.decision==='not_model'){publish('waiting',`判定非模型序列（${headlineOf(record.result)}），停止补题`,record);break;}
+          if(record.result?.decision==='scored'){publish('waiting',`已满 3 题校准完成（${headlineOf(record.result)}）`,record);break;}
+        }
+        if(record.samples.length<goal){publish('waiting',`已捕获 ${record.samples.length}/3 条证据，自动补题获取校准置信度…`,record);await sleep(1200);}
       }
       let textNote='';
       if(!priceMode&&active&&!cancelled){try{textNote=await textBankScoreActive(active,'文本通道');}catch{}}
@@ -1420,7 +1476,7 @@
   /* 价格指纹结果卡：显示裁决结果 + 依据 + 披露（数字通道结论也一并展示，两者不互相顶替）。 */
   function renderPricePanel(state){
     if(!fpCard)return;
-    const fp=state?.price_fingerprint||null;
+    const fp=(state&&'price_fingerprint' in state)?state.price_fingerprint:(lastPriceFingerprint||null);
     const cr=ledgerState.data?.cost_reverse||null;
     if(!fp&&!cr){
       fpName.textContent='尚未识别';fpName.dataset.tone='muted';
@@ -1659,6 +1715,12 @@
     if(id)mark('会话侧栏标签可重命名',[...document.querySelectorAll('a[data-sidebar="menu-button"][href]')].some(link=>String(link.href).includes(id)));
     await refreshBalance(false);
     mark('额度 /api/me/pulse',typeof balanceInfo?.pulse==='number'?pctText(balanceInfo.pulse):(balanceError||'未读取'));
+    try{
+      const bankRes=await chrome.runtime.sendMessage({type:'AMP_LMFPD_STATUS'});
+      if(bankRes?.ok&&bankRes.info)lmfpdBankInfo=bankRes.info;
+      const info=bankRes?.info||lmfpdBankInfo;
+      mark('lm.ikale.io 指纹库',info?`${info.models} 个模型 · 构建 ${shortDate(info.built_at)||'—'} · ${info.origin==='remote'?'在线缓存':'随包内置'}`:'尚未就绪');
+    }catch(error){mark('lm.ikale.io 指纹库','读取失败：'+(error?.message||'未知原因'));}
     /* v2.10.0 价格通道自检：成本表是否加载 + 页面有没有下发成本/用量字段（不发消息、不耗额度）。 */
     try{
       const price=await chrome.runtime.sendMessage({type:'AMP_PRICE'});
@@ -1763,37 +1825,31 @@
     publishDraw('diagnosed',text);
     return text;
   }
-  const verdictOf=result=>result?({clear:'清晰匹配',close:'同族近似',weak:'弱匹配'}[result.status]||result.status):'未通过门控';
-  // v2.6.0 置信度门槛：只有「清晰匹配」才自动改会话名；Top3 与拟合/分离始终展示，避免“向某个模型塌缩”被当成确定答案。
-  const topThreeOf=result=>((result?.top3||[]).slice(0,3).map(item=>`${item.display_name} ${Number(item.fit).toFixed(3)}`).join(' / '));
+  const verdictOf=result=>result?badgeTextOf(result):'未通过门控';
+  const topThreeOf=result=>((result?.top3||[]).slice(0,3).map(item=>`${item.display_name}${isNum(item.probability)?` ${(Number(item.probability)*100).toFixed(1)}%`:(isNum(item.score)?` ${Number(item.score).toFixed(2)}`:'')}`).join(' / '));
   const namingClear=result=>result?.status==='clear'||prefs.renameAnyway===true;
-  // v2.8.1：结果面板与气泡统一走这两个函数——置信集 >1 显示家族+候选集，混合/漂移挂提示，弱匹配显示未定。
   const decisionOf=result=>result?.signals?.decision||null;
   const resultLabelOf=result=>{
     if(!result)return '暂无可靠候选';
-    const nearest=result.nearest?.display_name||'—',d=decisionOf(result);
-    if(result.status==='weak')return `未定（最近 ${nearest}）`;
-    if(d&&d.set_size>1)return `${result.nearest?.family_name||nearest} 家族 · 候选 ${d.set_names.join(' / ')}`;
-    if(d&&d.mixture)return `${nearest}（疑似近亲混合路由或参考库漂移 ${d.mixture.names.join('+')}）`;
-    return nearest;
+    if(result.decision==='not_model')return '不像语言模型回答';
+    if(result.decision==='unscorable'||!result.nearest)return '暂不可评分';
+    const name=result.nearest.display_name||result.nearest.id||'—';
+    if(result.decision==='partial')return `${name}（部分样本 ${result.used_outputs||0}/3）`;
+    return name;
   };
-  const badgeTextOf=result=>({clear:'清晰匹配',close:'同族近似',weak:'弱匹配'}[result?.status]||result?.status||'');
-  /* v2.19.11 lmfpd 对照通道上头条：主指纹未定/只有家族候选时，把 lmfpd 的闭集首选直接顶上；
-     clear 不动（两套独立证据，主指纹清晰时以它为准，分歧见下方 lmfpd 行）。 */
-  const headlineOf=result=>{
-    const base=resultLabelOf(result),lm=result?.lmfpd,name=lm?.prediction_name;
-    if(result?.status==='weak'){
-      if(lm?.decision==='not_model')return '未定 · lmfpd 判非模型序列';
-      if(name)return `未定 · lmfpd ${lm.decision==='partial'?'倾向':'首选'} ${name}`;
-      return base;
+  const badgeTextOf=result=>{
+    if(!result)return '';
+    if(result.decision==='not_model')return '非模型序列';
+    if(result.decision==='unscorable')return '不可评分';
+    if(result.decision==='partial')return '部分样本';
+    if(result.decision==='scored'){
+      if(result.signals?.anomalous_samples?.length)return '样本异常';
+      if(result.signals?.low_confidence)return '低置信';
+      return '已校准';
     }
-    if(name&&lm?.decision==='scored'){
-      if(lm.agreement==='lmfpd 一致')return name;
-      if(result?.status!=='close')return `${name} · lmfpd 首选（主指纹 ${base}）`;
-    }
-    if(result?.status==='close'&&name)return `${base} · lmfpd ${name}`;
-    return base;
+    return {clear:'高置信匹配',close:'待确认',weak:'未定'}[result.status]||result.status||'';
   };
+  const headlineOf=result=>resultLabelOf(result);
   /* v2.10.0 价格通道：把 Arena 公开的「每模型任务成本」显示出来（详见 Arena价格接口调研.md）。
      网页版不下发每次请求的美元成本，所以默认只展示候选的成本档位；一旦嗅探器抓到现场成本，
      就同时显示成本一致性核对。 */
@@ -1844,20 +1900,24 @@
     const verdict=d.separable?'价格可区分':'价格不可区分';
     return ` · 单价区分度 ${d.span}×（${verdict}：${d.min.label} ${fmtUsd(d.min.min_usd)} ~ ${d.max.label} ${fmtUsd(d.max.max_usd)}）${costLine}${realLine}${reverseLine}${fpLine}`;
   };
-  /* v2.19.11 lmfpd 对照通道：Fingerpoint Detector（lm.ikale.io）66 模型库的第二意见，
-     只展示不参与判定 —— decision / 校准概率 / 与主指纹最近候选的一致性。 */
+  /* v2.19.13 lm.ikale.io 诊断提示：异常样本（最小值 >= 200）、低置信（<75%）、共享底模、或非模型/部分样本原因。 */
   const lmfpdNoteOf=result=>{
-    const lm=result?.lmfpd;
-    if(!lm)return '';
-    if(lm.decision==='unavailable')return `lmfpd 对照 · 参考库未加载${lm.error?`（${lm.error}）`:''}`;
-    if(lm.decision==='not_model')return 'lmfpd 对照 · 判定非模型序列（未生成排名）';
-    const name=lm.prediction_name;
-    if(!name)return `lmfpd 对照 · 暂不可评分（有效 ${lm.used_outputs||0}/3 条）`;
-    const top3=(lm.top3||[]).map(t=>t.display_name||t.model).filter(Boolean);
-    const prob=Number.isFinite(lm.probability)?` ${(lm.probability*100).toFixed(0)}%（库内相对）`:'';
-    const verdict={scored:'已评分',partial:'部分样本排名'}[lm.decision]||lm.decision;
-    const agree=String(lm.agreement||'').replace(/^lmfpd /,'');
-    return `lmfpd 对照 · ${name}${prob}${top3.length?` · Top3 ${top3.join(' / ')}`:''} · ${verdict}${agree&&agree!=='无有效排名'?` · ${agree}`:''}`;
+    if(!result)return '';
+    const s=result.signals||{};
+    const notes=[];
+    if(Array.isArray(s.anomalous_samples)&&s.anomalous_samples.length){
+      notes.push(`⚠️ 样本 ${s.anomalous_samples.map(i=>i+1).join(', ')} 分布异常（最小值 ≥ 200），结果不可靠`);
+    }
+    if(s.low_confidence){
+      notes.push('⚠️ 置信度不足（<75%）：可能不在指纹库内或接近多模型边界');
+    }
+    if(s.shared_base_note){
+      notes.push(s.shared_base_note);
+    }
+    if((result.decision==='not_model'||result.decision==='partial'||result.decision==='unscorable')&&s.evidence?.reason){
+      notes.push(s.evidence.reason);
+    }
+    return notes.join(' · ');
   };
   async function drawRound(index){
     if(generating()){publishDraw('waiting',`第 ${index} 轮：上一条回复仍在生成，等待结束后再新建聊天…`);await waitFor(()=>!generating(),'上一条回复超过 240 秒仍在生成，本轮跳过',240000,null);}
@@ -1884,11 +1944,11 @@
     }
     if(prefs.autoTopUp&&mode==='quick'&&!priceMode){
       let added=0;
-      while(added<2&&record.result&&record.result.status!=='clear'){
+      while(added<2&&record.result&&record.result.decision!=='scored'&&record.result.decision!=='not_model'){
         const more=planProbes('precise',usedProbeIndexes(record),cryptoRandom);
         if(!more.length)break;
-        const why={clear:'清晰匹配',close:'同族近似',weak:'弱匹配'}[record.result.status]||record.result.status;
-        publishDraw('topup',`第 ${index} 轮：${why}，自动补第 ${more[0]+1} 题加强证据…`);
+        const why=badgeTextOf(record.result)||record.result.decision||'待补齐';
+        publishDraw('topup',`第 ${index} 轮：${why}（${record.result.used_outputs||0}/3），自动补第 ${more[0]+1} 题获取校准置信度…`);
         let step;
         try{step=await captureProbe({record,probeIndex:more[0],expectedSession:active,label:`第 ${index} 轮 · 补题 · `});}
         catch(error){
@@ -1897,12 +1957,12 @@
           break;
         }
         record=step.record;active=step.sessionId;targetSession=active;lastResult=record.result;added++;
-        if(record.result&&record.result.status!=='clear')await sleep(1000);
+        if(record.result&&record.result.decision!=='scored'&&record.result.decision!=='not_model')await sleep(1000);
       }
     }
     let textNote='';
     if(!priceMode&&active&&!cancelled){try{textNote=await textBankScoreActive(active,`第 ${index} 轮 · 文本通道`);}catch{}}
-    const sceneNote=prefs.mode!=='price'&&lastResult?await sceneChannelFor(index,active,lastResult.nearest.display_name):'';
+    const sceneNote=prefs.mode!=='price'&&lastResult?.nearest?.display_name?await sceneChannelFor(index,active,lastResult.nearest.display_name):'';
     const summary=await finishRecognition(active,record,prefs.mode,index);
     summary.renameNote+=sceneNote+textNote;
     return summary;
@@ -1937,7 +1997,7 @@
         try{
           const result=await drawRound(draw.round);
           draw.results.unshift({round:draw.round,at:Date.now(),label:result.label,verdict:result.verdict,renamed:result.renamed,sessionId:result.sessionId});
-          localStats.rounds+=1;if(result.status==='clear')localStats.clear+=1;if(Number.isFinite(result.fit))localStats.fits.push(Number(result.fit));if(Number.isFinite(result.separation))localStats.seps.push(Number(result.separation));void saveLocalStats();
+          localStats.rounds+=1;if(result.status==='clear')localStats.clear+=1;if(Number.isFinite(result.prob))localStats.probs.push(Number(result.prob));if(Number.isFinite(result.fit))localStats.fits.push(Number(result.fit));if(Number.isFinite(result.separation))localStats.seps.push(Number(result.separation));void saveLocalStats();
           if(draw.results.length>25)draw.results.length=25;
           if(result.status==='none')draw.failed++;else{draw.completed++;if(result.renamed)draw.renamed++;}
           consecutive=0;
@@ -2141,7 +2201,7 @@ table.cost-table td.c-zero{color:#5f7a73}
 table.cost-table tfoot td{background:#162924;color:#d6ece2;font-weight:650;border-top:1px solid #35544a}
 .cost-empty{padding:9px;color:#7d968f;font-size:8px;line-height:1.55}
 `;
-    const box=el('section','box'),head=el('header','head'),mark=el('span','mark','V'),title=el('div','title');title.append(el('b','','Vodka-Arena-Model'),el('small','','MODEL INTELLIGENCE · v2.19.12'));const collapse=el('button','collapse','—');collapse.title='收起';collapse.addEventListener('click',()=>{collapsed=true;paint();});const headTools=makeTools();head.append(mark,title,headTools[0],headTools[1],collapse);
+    const box=el('section','box'),head=el('header','head'),mark=el('span','mark','V'),title=el('div','title');title.append(el('b','','Vodka-Arena-Model'),el('small','','MODEL INTELLIGENCE · v2.19.13'));const collapse=el('button','collapse','—');collapse.title='收起';collapse.addEventListener('click',()=>{collapsed=true;paint();});const headTools=makeTools();head.append(mark,title,headTools[0],headTools[1],collapse);
     style.textContent+=`
 /* Vodka-Arena-Model · deep-space / ice-blue interface */
 .box{--vam-bg:#090e1a;--vam-panel:#10192c;--vam-border:#253756;--vam-text:#e5edff;--vam-muted:#91a4c7;--vam-accent:#67deff;width:368px;border-color:#304767;border-radius:16px;background:radial-gradient(ellipse at top right,#233c652e,transparent 55%),var(--vam-bg);color:var(--vam-text);box-shadow:0 20px 64px #020611b3,0 0 0 1px #67deff0c;font:12px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark}
@@ -2182,17 +2242,20 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
 .cost-table-head small,.cost-table-note{color:#7e99be}.cost-table .c-name{color:#92a9cd}.cost-table .c-usd{font-variant-numeric:tabular-nums}
 .compact{border-color:#304767;background:linear-gradient(110deg,#102038,#181b33);gap:8px;padding:9px 10px}.compact-text{color:#a8c9ee}.compact .mark{width:24px;height:24px;font-size:13px}.expand{border-color:#426384;background:#142b43;color:#8fe6ff}
 .box ::-webkit-scrollbar{width:5px;height:5px}.box ::-webkit-scrollbar-thumb{background:#2c4469;border-radius:8px}.box ::-webkit-scrollbar-track{background:transparent}
+.lmfpd-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:6px 8px;border:1px solid var(--vam-border);border-radius:9px;background:#0e172a;font-size:9px;color:var(--vam-muted)}
+.lmfpd-bar span{flex:1;min-width:0;overflow-wrap:anywhere}
+.lmfpd-bar button{flex:none;padding:4px 8px;font-size:9px}
 @media(prefers-reduced-motion:reduce){button{transition:none}}
 `;
     head.title='按住拖动可移动浮层';installDrag(head);
-    const body=el('div','body'),warning=el('p','warning','点击即发送真实消息：下拉可选价格指纹、数字指纹或组合。价格发 1 题取账单；数字可自动补题；组合在数字候选中结合价格排序。“只取最接近”只把顶部名称/最终识别定为第一名，下方候选和证据仍照常展示；默认关闭，实际改会话名仍需勾选改名。'),controls=el('div','controls');runOneButton=el('button','primary','快速识别 · 随机1题');runAllButton=el('button','all','精准识别 · 3题全问');runPriceButton=el('button','all','价格识别 · 1题按价');controls.style.gridTemplateColumns='1fr 1fr';controls.append(runOneButton,runAllButton);const minor=el('div','minor');appendButton=el('button','','再补 1 题');stopButton=el('button','stop','停止');clearButton=el('button','','清除结果');minor.append(appendButton,stopButton,clearButton);progressNode=el('p','progress');progressNode.setAttribute('role','status');
+    const body=el('div','body'),warning=el('p','warning','点击即发送真实消息：默认使用 lm.ikale.io 最新指纹库识别（自动补满 3 题获取校准置信度）；也可下拉切价格指纹或组合模式。“只取最接近”只锁定顶部显示名称，下方候选与证据照常保留。'),controls=el('div','controls');runOneButton=el('button','primary','快速识别 · 随机1题');runAllButton=el('button','all','精准识别 · 3题全问');runPriceButton=el('button','all','价格识别 · 1题按价');controls.style.gridTemplateColumns='1fr 1fr';controls.append(runOneButton,runAllButton);const minor=el('div','minor');appendButton=el('button','','再补 1 题');stopButton=el('button','stop','停止');clearButton=el('button','','清除结果');minor.append(appendButton,stopButton,clearButton);progressNode=el('p','progress');progressNode.setAttribute('role','status');
     resultNode=el('section','result');const resultTop=el('div','result-top');resultModel=el('div','model');resultBadge=el('span','badge');resultTop.append(resultModel,resultBadge);resultMetrics=el('div','metrics');resultBank=el('div','bank');resultLmfpd=el('div','bank lmfpd');resultNode.append(resultTop,resultMetrics,resultBank,resultLmfpd);
     /* 轨迹直读不再是独立卡片（用户要求不展示）：并入数字指纹面板底部一行小字。 */
     traceNode=el('div','bank');traceNode.textContent='轨迹直读：等待 public-access-token（页面自身请求的响应头）';
     const drawBox=el('section','draw'),drawHead=el('div','draw-title');drawHead.append(el('b','','自动抽卡'),el('span','','New Chat 循环'));
     const drawGrid=el('div','draw-grid');
     drawInput=el('input');drawInput.type='number';drawInput.min='1';drawInput.max='100';drawInput.title='抽卡轮数（1–100）';
-    drawMode=el('select');for(const [value,label] of [['price','价格指纹'],['quick','数字指纹'],['combined','组合 · 数字 + 价格']]){const option=el('option',null,label);option.value=value;drawMode.append(option);}drawMode.title='单次识别和抽卡共用此模式；组合在数字候选中联合数字拟合与价格贴合度排序';
+    drawMode=el('select');for(const [value,label] of [['quick','数字指纹（lm.ikale.io）'],['price','价格指纹'],['combined','组合 · 数字 + 价格']]){const option=el('option',null,label);option.value=value;drawMode.append(option);}drawMode.title='单次识别和抽卡共用此模式；数字指纹以 lm.ikale.io 为准，组合在其候选中联合价格排序';
     drawMinPulse=el('input');drawMinPulse.type='number';drawMinPulse.min='0';drawMinPulse.max='100';drawMinPulse.title='额度下限百分比；低于它就停止抽卡，0 表示不限制';
     drawBlockThinking=el('input');drawBlockThinking.type='checkbox';drawBlockThinking.style.cssText='width:auto;height:13px;padding:0;justify-self:start;margin:0';drawBlockThinking.title='开启后：一旦检测到模型开始 thinking，立即截断并进入下一轮（本轮不识别、不改名）';
     drawAutoTopUp=el('input');drawAutoTopUp.type='checkbox';drawAutoTopUp.style.cssText='width:auto;height:13px;padding:0;justify-self:start;margin:0';drawAutoTopUp.title='默认开启：快速模式下若判定不是“清晰匹配”，自动补发剩余探针（最多 3 题）加强证据；判定清晰时只问 1 题，更快';
@@ -2269,7 +2332,8 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     costTableWrap.append(costHead,costScroll,costTableEmpty);
     panelPrice.append(fpCard,fpCands,costTableWrap,byline);
     const recognitionGrid=el('div','draw-grid');recognitionGrid.append(el('label',null,'识别模式'),drawMode,el('label',null,'改名（最接近）'),drawRenameAnyway,el('label',null,'只取最接近'),drawForceBest);
-    panelRecognition.append(recognitionGrid,drawBox,warning,controls,minor,progressNode,panelPrice,panelNumeric,balanceBox);
+    const lmfpdBar=el('div','lmfpd-bar');lmfpdBarText=el('span','','lm.ikale.io 指纹库 · 读取中…');lmfpdRefreshButton=el('button','','刷新指纹库');lmfpdRefreshButton.title='从 https://lm.ikale.io/ 拉取最新指纹库并在本机持久化缓存';lmfpdBar.append(lmfpdBarText,lmfpdRefreshButton);
+    panelRecognition.append(recognitionGrid,lmfpdBar,drawBox,warning,controls,minor,progressNode,panelPrice,panelNumeric,balanceBox);
     body.append(tabsBar,panelRecognition,panelCost);
     const compact=el('div','compact');compactText=el('div','compact-text','模型探测');const expand=el('button','expand','↗');expand.title='展开';expand.addEventListener('click',()=>{collapsed=false;paint();});const compactTools=makeTools();compact.append(mark.cloneNode(true),compactText,compactTools[0],compactTools[1],expand);
     runOneButton.addEventListener('click',()=>void run(prefs.mode));runAllButton.addEventListener('click',()=>void run('precise'));runPriceButton.addEventListener('click',()=>void run('price'));appendButton.addEventListener('click',()=>void run(prefs.mode));stopButton.addEventListener('click',()=>{if(draw.running)stopDraw();else stop();});clearButton.addEventListener('click',clearCurrent);
@@ -2277,6 +2341,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     drawStopButton.addEventListener('click',stopDraw);
     diagnoseButton.addEventListener('click',()=>void diagnose());
     balanceButton.addEventListener('click',()=>void refreshBalance(true));
+    lmfpdRefreshButton.addEventListener('click',()=>void refreshLmfpdBank(false));
     ledgerButton.addEventListener('click',()=>void refreshLedger());
     ledgerToggle.addEventListener('click',()=>{ledgerState.expanded=!ledgerState.expanded;if(ledgerState.expanded&&!ledgerState.data)void refreshLedger();else paint();});
     drawInput.addEventListener('change',()=>void savePrefs({rounds:Number(drawInput.value)}));
@@ -2317,12 +2382,30 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     
     
     runOneButton.textContent=busy?'运行中…':'开始识别';runAllButton.textContent=busy?'运行中…':'精准识别 · 3题全问';runPriceButton.textContent=busy?'运行中…':'价格识别 · 1题按价';progressNode.textContent=state.progress||progress;
-    if(state.result){resultNode.hidden=false;resultNode.dataset.level=state.recognition?'close':state.result.status;resultModel.textContent=state.recognition?(state.recognition.label||'Arena 模型池内暂无候选'):headlineOf(state.result);resultBadge.textContent=state.recognition?'Arena 候选排序':badgeTextOf(state.result);resultMetrics.textContent=`${Number.isFinite(state.result.lmfpd?.probability)?`lmfpd 置信 ${(state.result.lmfpd.probability*100).toFixed(0)}%（库内相对）· `:''}拟合 ${Number(state.result.signals.fit).toFixed(3)} · 分离 ${Number(state.result.signals.separation).toFixed(3)} · 家族 ${(Number(state.result.signals.family_probability)*100).toFixed(1)}% · 有效 ${state.result.used_outputs}/${samples} · 数字 ${Number.isFinite(Number(state.result.signals.evidence_numbers))?Number(state.result.signals.evidence_numbers):'—'}${state.result.signals.pooled?'（池化）':''} · 候选集 ${decisionOf(state.result)?.set_size??1}${decisionOf(state.result)?.off_reference?' · 混合/漂移提示':''} · Top3 ${topThreeOf(state.result)||'—'}`;const source=String(state.result.bank_source||'');const coverage=source.includes('ModelTrace d4131b3')?' · 离线库仅 GPT/Claude，不含 Gemini':source.includes('WhatsMyLLM v2026.09.5')?' · 指纹库只含 Gemini 3.8 Flash 参考，其他 Gemini 版本未覆盖':'';resultBank.textContent=`${source} · ${state.result.bank_models} 个候选${coverage} · ${localSummary()}${(()=>{const note=costNoteOf(state.result);return note?' · '+note:'';})()}${pricingNoteOf(state.result)}`;const lmNote=lmfpdNoteOf(state.result);resultLmfpd.hidden=!lmNote;resultLmfpd.textContent=lmNote;compactText.textContent=`${resultBadge.textContent} · ${resultModel.textContent}`;}
+    if(state.result){
+      resultNode.hidden=false;resultNode.dataset.level=state.recognition?'close':state.result.status;
+      resultModel.textContent=state.recognition?(state.recognition.label||'Arena 模型池内暂无候选'):headlineOf(state.result);
+      resultBadge.textContent=state.recognition?'Arena 候选排序':badgeTextOf(state.result);
+      const sig=state.result.signals||{};
+      const probText=isNum(sig.probability)
+        ?`置信 ${(Number(sig.probability)*100).toFixed(1)}%（库内相对）`
+        :(state.result.decision==='partial'?`部分样本 ${state.result.used_outputs||0}/3（补满 3 题可算置信度）`:'置信度 暂不可用');
+      const famText=isNum(sig.family_probability)?` · 家族 ${(Number(sig.family_probability)*100).toFixed(1)}%`:'';
+      const scoreText=isNum(sig.score)?` · 分数 ${Number(sig.score).toFixed(3)}`:'';
+      resultMetrics.textContent=`${probText}${famText}${scoreText} · 有效 ${state.result.used_outputs||0}/${samples} · 数字 ${isNum(sig.evidence_numbers)?Number(sig.evidence_numbers):'—'} · Top3 ${topThreeOf(state.result)||'—'}`;
+      const builtDate=shortDate(state.result.bank_built_at);
+      const originLabel=state.result.bank_origin==='remote'?'在线缓存':'内置';
+      resultBank.textContent=`lm.ikale.io · ${state.result.bank_models||0} 模型${builtDate?`（${builtDate} · ${originLabel}）`:''} · ${localSummary()}${(()=>{const note=costNoteOf(state.result);return note?' · '+note:'';})()}${pricingNoteOf(state.result)}`;
+      const lmNote=lmfpdNoteOf(state.result);resultLmfpd.hidden=!lmNote;resultLmfpd.textContent=lmNote;
+      compactText.textContent=`${resultBadge.textContent} · ${resultModel.textContent}`;
+    }
     else{resultNode.hidden=true;compactText.textContent=state.draw.running?`抽卡 ${state.draw.round}/${state.draw.total}`:samples?`已捕获 ${samples}/3 条`:'模型探测';}
     if((state.prefs.mode==='price'||state.prefs.mode==='combined')&&state.price_fingerprint?.suggestion){const fp=state.price_fingerprint,suggestion=fp.suggestion;if(fp.forced_best===true)compactText.textContent=`用户强制单选 · ${suggestion.label}`;else if(state.prefs.mode==='combined')compactText.textContent=`组合候选（启发式，非确定） · ${suggestion.label}`;else if(fp.separable===true)compactText.textContent=`价格唯一 · ${suggestion.label}`;else{const count=Number(fp.price_window_matches)||fp.price_window_hits?.length||fp.rate_family?.models?.length||fp.hard_filter?.candidates?.length||0;compactText.textContent=count?`价格未定 · ${count} 个候选`:'价格未定 · 候选见详情';}}
     const focused=root.activeElement;
     if(focused!==drawInput)drawInput.value=String(state.prefs.rounds);
-    if(focused!==drawMode)drawMode.value=String(state.prefs.mode||'price');
+    if(focused!==drawMode)drawMode.value=String(state.prefs.mode||'quick');
+    if(lmfpdBarText)lmfpdBarText.textContent=lmfpdRefreshNote?`${formatLmfpdBankLabel(lmfpdBankInfo)} · ${lmfpdRefreshNote}`:formatLmfpdBankLabel(lmfpdBankInfo);
+    if(lmfpdRefreshButton){lmfpdRefreshButton.disabled=lmfpdRefreshing;lmfpdRefreshButton.textContent=lmfpdRefreshing?'刷新中…':'刷新指纹库';}
     drawMode.disabled=busy||state.draw.running;drawRenameAnyway.disabled=busy||state.draw.running;drawForceBest.disabled=busy||state.draw.running;
     panelNumeric.hidden=state.prefs.mode==='price';panelPrice.hidden=state.prefs.mode==='quick'||state.prefs.mode==='precise';
     runAllButton.hidden=state.prefs.mode!=='quick'&&state.prefs.mode!=='precise';runPriceButton.hidden=true;
@@ -2373,6 +2456,7 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     if(message?.type==='AMP_DIAGNOSE'){void diagnose().then(text=>reply({...publicStatus(),diagnose:text}));return true;}
     if(message?.type==='AMP_PREFS_SET'){void savePrefs(message.patch||{}).then(()=>reply(publicStatus()));return true;}
     if(message?.type==='AMP_BALANCE_REFRESH'){void refreshBalance(true).then(()=>reply(publicStatus()));return true;}
+    if(message?.type==='AMP_LMFPD_REFRESH'){void refreshLmfpdBank(message.force===true).then(()=>reply(publicStatus()));return true;}
   });
   /* v2.9.0 网络层嗅探中继（D）：MAIN world 的 network-sniffer.js 用 window.postMessage 送出
      模型字段与 public-access-token，这里原样转给 background（隔离世界拿不到页面上下文）。 */
@@ -2395,14 +2479,14 @@ button:disabled{opacity:.38;box-shadow:none}.minor{margin-top:7px}.progress{marg
     if(host&&!host.isConnected)createHud();
     if(foldOn&&mutations.some(change=>!foldRoot||foldRoot.contains(change.target)||change.target.contains?.(foldRoot)))scheduleFold();
   }).observe(document,{childList:true,subtree:true});
-  try{document.documentElement.dataset.ampBuild='v21912';}catch{} // 构建标记：验证页面注入的是最新脚本
+  try{document.documentElement.dataset.ampBuild='v21913';}catch{} // 构建标记：验证页面注入的是最新脚本
   /* 页面性能：1s 无条件重画改事件驱动 —— 路由/历史变更与嗅探回包即时重画（它们正是 agentPage/explicit 状态变化的来源），
      另留 5s 低频兜底兜住其余不定期变化（显隐判断仍在 paint 内部，行为语义不变）。 */
   createHud();setInterval(paint,5000);
   /* 测试钩子：仅当宿主显式提供 __ampTestHook 时导出内部函数（生产环境不挂载）。
      必须放在 createHud() 之后 —— 面板节点是那时才赋值的；用 getter 保证 createHud() 重建后仍取到最新引用。 */
-  try{if(globalThis.__ampTestHook){globalThis.__ampTest={ledgerState,renderCostTable,renderPricePanel,renderPriceCandidates,selectTab,setPrice:(fp)=>{lastPriceFingerprint=fp;},applyHudPos,get panels(){return panels;},get tabs(){return tabs;},get costTableBody(){return costTableBody;},get costTableFoot(){return costTableFoot;},get costTableEmpty(){return costTableEmpty;},get fpCands(){return fpCands;},get fpCandsList(){return fpCandsList;},get activeTab(){return activeTab;},get pos(){return pos;},get host(){return host;}};}}catch{}
+  try{if(globalThis.__ampTestHook){globalThis.__ampTest={ledgerState,renderCostTable,renderPricePanel,renderPriceCandidates,renderHud,records,session,selectTab,setPrice:(fp)=>{lastPriceFingerprint=fp;},applyHudPos,get panels(){return panels;},get tabs(){return tabs;},get costTableBody(){return costTableBody;},get costTableFoot(){return costTableFoot;},get costTableEmpty(){return costTableEmpty;},get fpCands(){return fpCands;},get fpCandsList(){return fpCandsList;},get lmfpdBarText(){return lmfpdBarText;},get lmfpdRefreshButton(){return lmfpdRefreshButton;},get resultNode(){return resultNode;},get resultModel(){return resultModel;},get resultBadge(){return resultBadge;},get resultMetrics(){return resultMetrics;},get resultBank(){return resultBank;},get resultLmfpd(){return resultLmfpd;},get activeTab(){return activeTab;},get pos(){return pos;},get host(){return host;}};}}catch{}
   setInterval(()=>{if(running||draw.running){try{chrome.runtime.sendMessage({type:'AMP_PING'}).catch(()=>{});}catch{}}},20000); // v2.9.15：运行期给 SW 保活，防止调试会话因 SW 挂起变孤儿
-  void loadPrefs().then(()=>loadLocalState()).then(()=>{paint();void refreshBalance(false);});
+  void loadPrefs().then(()=>loadLocalState()).then(()=>{paint();void loadLmfpdStatus();void refreshBalance(false);});
 
 })();

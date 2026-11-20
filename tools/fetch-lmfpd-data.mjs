@@ -44,7 +44,12 @@ async function fetchFrom(source) {
   const file = bundle.files?.[DETECTOR];
   if (!file?.parts?.length || !file.sha256) throw new Error('bundle.json missing detector file entry');
   const parts = [];
-  for (const part of file.parts) parts.push(await download(`${source}chunks/${part}`));
+  for (const part of file.parts) {
+    if (typeof part !== 'string' || !/^[a-zA-Z0-9._-]+\.zst$/.test(part)) {
+      throw new Error(`invalid chunk filename: ${String(part)}`);
+    }
+    parts.push(await download(`${source}chunks/${part}`));
+  }
   const total = parts.reduce((sum, part) => sum + part.length, 0);
   const packed = new Uint8Array(total);
   let offset = 0;

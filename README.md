@@ -1,6 +1,6 @@
-# Arena Model Probe 2.19.11　·　由 Vodka 制作
+# Arena Model Probe 2.19.13　·　由 Vodka 制作
 
-独立的 Chrome / Edge Manifest V3 扩展，不依赖 Arena Trace Inspector、Trigger.dev trace 或旧部署 Cookie。它用数字指纹识别 Arena Agent 当前会话背后的模型：可以单轮探测，也可以连续自动抽卡；同时显示 Arena 每日额度剩余。
+独立的 Chrome / Edge Manifest V3 扩展，不依赖 Arena Trace Inspector、Trigger.dev trace 或旧部署 Cookie。它全面采用 [Fingerpoint Detector (`https://lm.ikale.io/`)](https://lm.ikale.io/) 最新 75 模型数字指纹库（支持插件内在线一键刷新）识别 Arena Agent 当前会话背后的模型：可以单轮探测，也可以连续自动抽卡；同时显示 Arena 每日额度剩余。
 
 ## 功能
 
@@ -295,13 +295,13 @@ rows : #1 01a12ca2 role=assistant tokens=7936 est.input_lower=421
 
 扩展此前只匹配 `https://arena.ai/*`，导致在 **`canary.arena.ai`（预发布域，登录态/新功能常先在那边）上完全不注入**。2.15.0 起 manifest、后台来源校验（`isAgentUrl`）、`content.js` 的 `agentPage()`、`popup.js`、`conversation-rename.js` 全部改为接受 `https://arena.ai` 与 `https://canary.arena.ai` 两个 origin（统一用 `/^https:\/\/(?:canary\.)?arena\.ai$/`）。**这是一次权限扩张**：扩展现在也会在 canary 域注入。
 
-## lmfpd 对照通道（v2.19.11 新增）
+## lmfpd 主指纹引擎与在线一键刷新（v2.19.13 升级）
 
-把主指纹判定有效的**同一批回复**再喂给 [Fingerpoint Detector](https://lm.ikale.io)（lmfpd，`shared-detector-v2` 排名器，参考库 66 个模型，覆盖 GPT/Claude/Gemini/Grok/Qwen/DeepSeek/GLM/Kimi 等最新型号），在「数字指纹」面板的来源行追加第二意见：
+自 2.19.13 起，扩展全面以 [Fingerpoint Detector](https://lm.ikale.io)（lmfpd，`shared-detector-v2` 排名器 + `nearby_pair_share` 序列门，内置最新 **75 模型**参考库，覆盖 GPT 6.2、Gemini 4、Claude Fable 5.2、Hunyuan 4、Muse、Qwen、DeepSeek、GLM、Kimi 等最新型号）作为唯一数字指纹主引擎：
 
-- 显示 lmfpd 的预测名、库内校准概率与判定（`scored` / `partial` / `unscorable` / `not_model`），以及它与主指纹最近候选的一致性（`lmfpd 一致` / `lmfpd 同族` / `lmfpd 不一致`）。
-- **纯对照展示**：不参与 `status`、候选集、改名任何判定；lmfpd 自身的置信度是参考库内闭集概率，不是身份证明。
-- 参考数据随包内置在 `lmfpd-data/`（`unified_bank.json` + `shared_detector.bin`，约 4.8MB），运行时不联网；`node tools/fetch-lmfpd-data.mjs` 可重新拉取上游最新库并校验 sha256。加载或评分失败静默降级为不显示。
+- 判定、校准置信度、Top3 候选、异常样本检测（最小值 `>= 200`）、低置信提示（`< 75%`）、`gpt-6-astra`/`gpt-6.1-sol` 共享底模提示及自动改名全部以 `lm.ikale.io` 为准；快速模式默认配合「自动补题」自动补满 3 题以获得库内校准概率。
+- **插件内在线一键刷新**：页面浮层与工具栏弹窗均提供「刷新指纹库」按钮，内置纯 JS Zstandard 解压器 `fzstd.js`（MIT），直接从 `https://lm.ikale.io/data/`（国内镜像 `cdn.jsdmirror.com` 兜底）拉取最新 `bundle.json` 与 `.zst` 分片、校验 SHA-256 并持久化至 IndexedDB 即时生效。
+- 参考数据默认随包内置在 `lmfpd-data/`（`unified_bank.json` + `shared_detector.bin`），平时识别不走外网；开发期也可运行 `node tools/fetch-lmfpd-data.mjs` 同步本地随包快照。
 
 ## 回复结束与自动重命名
 
@@ -349,10 +349,8 @@ rows : #1 01a12ca2 role=assistant tokens=7936 est.input_lower=421
 
 ## 指纹库与隐私
 
-- 首选读取固定的 WhatsMyLLM `v2026.09.5` 21 模型数据文件并校验 SHA-256。
-- 网络或完整性检查失败时，使用扩展内置的 ModelTrace `d4131b3` MIT 17 模型后备库。
-- lmfpd 对照通道的参考库（`lmfpd-data/`）随包内置、不联网；回复只在本机后台评分，不上传。
-- 远程请求只下载指纹 JSON，不上传回复、数字、Cookie、凭据或 referrer。
+- 数字指纹数据默认使用随包内置的 `lmfpd-data/`（2026-11-19，75 模型）并在本机 Service Worker 内评分，不向任何第三方上传回复正文或数字序列。
+- 已移除对旧 `whatsmyllm.com` 的运行时请求；仅在用户主动点击「刷新指纹库」时请求 `https://lm.ikale.io/data/`（及 `cdn.jsdmirror.com` 镜像）下载参考库并校验 SHA-256 后缓存在 IndexedDB。
 - 价格表 `arena-cost-table.json` 随包内置、**不联网**；成本信号只从页面自身响应里只读抽取字段名与数值，不落地正文。
 - 内容脚本只把提取后的数字数组发给扩展后台，不发送完整聊天正文。
 - 数字、评分结果和聊天 ID 只保存在页面／后台内存，刷新后清除；唯一写入磁盘的是自动抽卡的三个设置项（`chrome.storage.local`）。
@@ -381,4 +379,4 @@ npm test
 
 ## 第三方来源
 
-ModelTrace 评分核心、提示、内置后备库和测试样本来自 xqy2006/ModelTrace，MIT 许可。lmfpd 对照通道的评分核移植自 `lmfpd-sdk@0.2.0`（Ikaleio/lm-detector），MIT 许可，见 `LICENSE-LMFPD`。额度端点（`/api/me/pulse`）的字段语义与错误处理参考本机 Arena Trace Inspector 2.3.2 的 `billing.js`。详见 `LICENSE-ModelTrace`、`LICENSE-LMFPD` 与 `THIRD_PARTY_NOTICES.md`。
+Fingerpoint Detector（`lmfpd-channel.js` 与 `lmfpd-data/` 参考库）来自 Ikaleio/lm-detector（`lm.ikale.io`），MIT 许可，见 `LICENSE-LMFPD`。特征提取核心（`modeltrace-core.js`）与探针文本来自 xqy2006/ModelTrace，MIT 许可，见 `LICENSE-ModelTrace`。纯 JS Zstandard 解压器 `fzstd.js` 来自 Arjun Barrett / `fzstd@0.1.1`，MIT 许可，见 `LICENSE-fzstd`。额度端点（`/api/me/pulse`）的字段语义与错误处理参考 Arena Trace Inspector 2.3.2 的 `billing.js`。详见 `THIRD_PARTY_NOTICES.md`。

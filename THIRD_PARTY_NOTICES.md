@@ -18,35 +18,36 @@ Included files:
 
 ## Fingerpoint Detector (lmfpd)
 
-The secondary fingerprint channel scoring core and the bundled reference data are derived from:
+The primary numeric fingerprint engine and bundled reference data are derived from:
 
 - Project: lm-detector / lmfpd-sdk
 - Author: xqy2006 (Ikaleio)
 - Source: https://github.com/Ikaleio/lm-detector , https://lm.ikale.io
-- Package: `lmfpd-sdk@0.2.0`
 - License: MIT — see `LICENSE-LMFPD`
 
 Included files:
 
-- `lmfpd-channel.js` (ported scoring core: shared-detector-v2 ranker, sequence-shape gate, calibrated ranking)
-- `lmfpd-data/unified_bank.json` and `lmfpd-data/shared_detector.bin` (reference bank snapshot built 2026-11-03, refreshed by `tools/fetch-lmfpd-data.mjs`)
+- `lmfpd-channel.js` (ported scoring core: shared-detector-v2 ranker, sequence-shape gate including `nearby_pair_share`, calibrated ranking, online refresh & IndexedDB caching)
+- `lmfpd-data/unified_bank.json` and `lmfpd-data/shared_detector.bin` (75-model reference bank snapshot built 2026-11-19, refreshed by `tools/fetch-lmfpd-data.mjs` or in-extension online refresh)
 
-The channel is display-only cross-validation: it never influences the primary fingerprint status or session renaming. Replies are scored locally; no reply text is sent to lm.ikale.io.
+All replies are scored locally; no reply text or numeric sequences are sent to lm.ikale.io or any third party.
 
-## WhatsMyLLM methodology and optional data
+## fzstd
 
-The input gates and open-set thresholds implement the public methodology described at:
+Pure JS Zstandard decompressor used for in-extension online refresh of `shared_detector.bin.*.zst` chunks:
 
-- https://whatsmyllm.com/methodology/
+- Project: fzstd (`0.1.1`)
+- Author: Arjun Barrett
+- Source: https://github.com/101arrowz/fzstd
+- License: MIT — see `LICENSE-fzstd`
 
-At runtime the extension first attempts a read-only download of:
+Included files:
 
-- `https://whatsmyllm.com/data/bank/v2026.09.5.json`
-- Required SHA-256: `d21c1413eeac2f5238f37bc97df0299591433c14a1bbd5534546e95697fbd11f`
+- `fzstd.js`
 
-That data file is not bundled. It is validated as JSON and never executed. No captured reply or numeric sequence is included in the request. If unavailable, the bundled MIT-licensed ModelTrace bank is used.
+## WhatsMyLLM methodology (runtime bank request removed in 2.19.13)
 
-WhatsMyLLM does not maintain or endorse this extension.
+The input normalization and prompt wording originally followed the public methodology at https://whatsmyllm.com/methodology/. Runtime network requests to `https://whatsmyllm.com/data/bank/v2026.09.5.json` were removed in 2.19.13 in favor of `lm.ikale.io`.
 
 ## Embedded Buster
 

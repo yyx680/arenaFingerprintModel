@@ -9,18 +9,41 @@ const pendingRequests=new Map();
 const ARENA_ORIGIN_RE=/^https:\/\/(?:canary\.)?arena\.ai$/; // 生产 + 预发布 canary
 function agentUrl(value){try{const url=new URL(value);return ARENA_ORIGIN_RE.test(url.origin)&&/^\/(?:agent|work|c)(?:\/|$)/.test(url.pathname);}catch{return false;}} // v2.19.10：补 Arena 新会话路由 /c/<id>
 function clock(iso){const date=iso?new Date(iso):null;return date&&Number.isFinite(date.getTime())?`${date.getMonth()+1}-${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`:'—';}
+const shortDate=iso=>{const m=String(iso||'').match(/^\d{4}-\d{2}-\d{2}/);return m?m[0]:'';};
+const isNum=v=>typeof v==='number'?Number.isFinite(v):(typeof v==='string'&&v.trim()!==''&&Number.isFinite(Number(v)));
 
-// v2.8.1：置信集 >1 时显示「家族 + 候选集」，混合/漂移时挂提示，弱匹配显示「未定」，不再无条件报单一模型名。
-function decisionOf(result){return result?.signals?.decision||null;}
 function resultLabel(result){
-  const nearest=result?.nearest?.display_name||'—',d=decisionOf(result);
   if(!result)return '—';
-  if(result.status==='weak')return `未定（最近 ${nearest}）`;
-  if(d&&d.set_size>1)return `${result.nearest?.family_name||nearest} 家族 · 候选 ${d.set_names.join(' / ')}`;
-  if(d&&d.mixture)return `${nearest}（疑似近亲混合路由或参考库漂移 ${d.mixture.names.join('+')}）`;
-  return nearest;
+  if(result.decision==='not_model')return '不像语言模型回答';
+  if(result.decision==='unscorable'||!result.nearest)return '暂不可评分';
+  const name=result.nearest.display_name||result.nearest.id||'—';
+  if(result.decision==='partial')return `${name}（部分样本 ${result.used_outputs||0}/3）`;
+  return name;
 }
-function badgeText(result){return {clear:'清晰匹配',close:'同族近似',weak:'弱匹配'}[result?.status]||result?.status||'';}
+function badgeText(result){
+  if(!result)return '';
+  if(result.decision==='not_model')return '非模型序列';
+  if(result.decision==='unscorable')return '不可评分';
+  if(result.decision==='partial')return '部分样本';
+  if(result.decision==='scored'){
+    if(result.signals?.anomalous_samples?.length)return '样本异常';
+    if(result.signals?.low_confidence)return '低置信';
+    return '已校准';
+  }
+  return {clear:'高置信匹配',close:'待确认',weak:'未定'}[result.status]||result.status||'';
+}
+function topThreeText(result){
+  return (result?.top3||[]).slice(0,3).map(item=>`${item.display_name}${isNum(item.probability)?` ${(Number(item.probability)*100).toFixed(1)}%`:(isNum(item.score)?` ${Number(item.score).toFixed(2)}`:'')}`).join(' / ');
+}
+function resultNoteText(result){
+  if(!result)return '';
+  const s=result.signals||{},notes=[];
+  if(Array.isArray(s.anomalous_samples)&&s.anomalous_samples.length)notes.push(`⚠️ 样本 ${s.anomalous_samples.map(i=>i+1).join(', ')} 分布异常（最小值 ≥ 200），结果不可靠`);
+  if(s.low_confidence)notes.push('⚠️ 置信度不足（<75%）：可能不在指纹库内或接近多模型边界');
+  if(s.shared_base_note)notes.push(s.shared_base_note);
+  if((result.decision==='not_model'||result.decision==='partial'||result.decision==='unscorable')&&s.evidence?.reason)notes.push(s.evidence.reason);
+  return notes.join(' · ');
+}
 
 function render(state){
   if(!state)return;lastState=state;const samples=Number(state.samples)||0,draw=state.draw||{},prefs=state.prefs||{},busy=!!state.running||requestingStart;
@@ -34,14 +57,27 @@ function render(state){
   $('run-precise').hidden=prefs.mode!=='quick';$('append').hidden=prefs.mode==='price';
   $('append').disabled=!available||busy||samples===0||samples>=3;
   $('append').textContent=samples>=3?'3 题已问完':`再补 1 题（已 ${samples}/3）`;
+  const bankInfo=state.lmfpdBank||null;
+  $('lmfpd-bank-text').textContent=bankInfo?`lm.ikale.io 指纹库 · ${bankInfo.models||0} 模型 · ${shortDate(bankInfo.built_at)||'—'}${bankInfo.origin==='remote'?'（在线缓存）':'（内置）'}`:'lm.ikale.io 指纹库 · 读取中…';
+  const bankNote=state.lmfpdRefreshNote||'';
+  $('lmfpd-bank-note').hidden=!bankNote;$('lmfpd-bank-note').textContent=bankNote;
   if(state.result&&prefs.mode!=='price'){
-    const result=state.result;$('result').hidden=false;$('result').dataset.level=state.recognition?'close':result.status;$('model').textContent=state.recognition?(state.recognition.label||'Arena 模型池内暂无候选'):resultLabel(result);
+    const result=state.result,sig=result.signals||{};
+    $('result').hidden=false;$('result').dataset.level=state.recognition?'close':result.status;
+    $('model').textContent=state.recognition?(state.recognition.label||'Arena 模型池内暂无候选'):resultLabel(result);
     $('badge').textContent=state.recognition?'Arena 候选排序':badgeText(result);
-    $('metrics').textContent=`拟合 ${Number(result.signals.fit).toFixed(3)} · 分离 ${Number(result.signals.separation).toFixed(3)} · 家族 ${(Number(result.signals.family_probability)*100).toFixed(1)}% · 有效 ${result.used_outputs}/${samples} · 数字 ${Number.isFinite(Number(result.signals.evidence_numbers))?Number(result.signals.evidence_numbers):'—'}${result.signals.pooled?'（池化）':''}`;
-    $('bank').textContent=`${result.bank_source} · ${result.bank_models} 个候选`;
+    const probText=isNum(sig.probability)?`置信 ${(Number(sig.probability)*100).toFixed(1)}%（库内相对）`:(result.decision==='partial'?`部分样本 ${result.used_outputs||0}/3`:'置信度 暂不可用');
+    const famText=isNum(sig.family_probability)?` · 家族 ${(Number(sig.family_probability)*100).toFixed(1)}%`:'';
+    const scoreText=isNum(sig.score)?` · 分数 ${Number(sig.score).toFixed(3)}`:'';
+    const topText=topThreeText(result);
+    $('metrics').textContent=`${probText}${famText}${scoreText} · 有效 ${result.used_outputs||0}/${samples} · 数字 ${isNum(sig.evidence_numbers)?Number(sig.evidence_numbers):'—'}${topText?` · Top3 ${topText}`:''}`;
+    const builtDate=shortDate(result.bank_built_at),originLabel=result.bank_origin==='remote'?'在线缓存':'内置';
+    $('bank').textContent=`lm.ikale.io · ${result.bank_models||0} 模型${builtDate?`（${builtDate} · ${originLabel}）`:''}`;
+    const note=resultNoteText(result);
+    $('result-note').hidden=!note;$('result-note').textContent=note;
   }else $('result').hidden=true;
   if(document.activeElement!==$('rounds'))$('rounds').value=String(prefs.rounds??5);
-  if(document.activeElement!==$('mode'))$('mode').value=String(prefs.mode||'price');
+  if(document.activeElement!==$('mode'))$('mode').value=String(prefs.mode||'quick');
   if(document.activeElement!==$('min-pulse'))$('min-pulse').value=String(prefs.minPulse??0);
   if(document.activeElement!==$('block-thinking'))$('block-thinking').checked=!!prefs.blockThinking;
   if(document.activeElement!==$('auto-topup'))$('auto-topup').checked=prefs.autoTopUp!==false;
@@ -131,8 +167,10 @@ function setConnection(connected,text=''){
 function updateRequestControls(){
   const balanceBusy=pendingRequests.has('AMP_BALANCE_REFRESH')||!!lastState?.balanceLoading;
   const ledgerBusy=pendingRequests.has('AMP_LEDGER_REFRESH')||!!lastState?.ledgerLoading;
+  const bankBusy=pendingRequests.has('AMP_LMFPD_REFRESH')||!!lastState?.lmfpdRefreshing;
   $('balance-refresh').disabled=!available||balanceBusy;$('balance-refresh').textContent=balanceBusy?'读取中…':'刷新';
   $('ledger-refresh').disabled=!available||ledgerBusy;$('ledger-refresh').textContent=ledgerBusy?'读取中…':'刷新';
+  $('lmfpd-refresh').disabled=!available||bankBusy;$('lmfpd-refresh').textContent=bankBusy?'刷新中…':'刷新指纹库';
   const diagnosing=pendingRequests.has('AMP_DIAGNOSE');
   $('draw-diagnose').disabled=!available||!!lastState?.running||requestingStart||diagnosing;
   $('draw-diagnose').textContent=diagnosing?'自检中…':'自检（只检查，不发送）';
@@ -204,6 +242,7 @@ $('draw-stop').addEventListener('click',()=>void message('AMP_DRAW_STOP'));
 $('draw-diagnose').addEventListener('click',()=>void message('AMP_DIAGNOSE'));
 $('balance-refresh').addEventListener('click',()=>void message('AMP_BALANCE_REFRESH'));
 $('ledger-refresh').addEventListener('click',()=>void message('AMP_LEDGER_REFRESH'));
+$('lmfpd-refresh').addEventListener('click',()=>void message('AMP_LMFPD_REFRESH'));
 $('ledger-toggle').addEventListener('click',()=>{ledgerExpanded=!ledgerExpanded;renderLedger(lastState||{});});
 for(const [id,key] of [['rounds','rounds'],['min-pulse','minPulse']]){
   $(id).addEventListener('change',()=>void message('AMP_PREFS_SET',{patch:{[key]:Number($(id).value)}}));

@@ -1,6 +1,5 @@
-import {identifyPrepared, prepareOutputs} from './model-probe-engine.js';
-import {loadProbeBank} from './model-probe-bank.js';
-import {analyzeLmfpdOutputs, loadLmfpdChannel, lmfpdSummary} from './lmfpd-channel.js';
+import {prepareOutputs} from './model-probe-engine.js';
+import {identifyWithLmfpd, loadLmfpdChannel, refreshLmfpdChannel, getLmfpdBankInfo} from './lmfpd-channel.js';
 import {createBalanceReader} from './billing.js';
 import {countNumbers, parseNumbers} from './modeltrace-core.js';
 import {queryRunTrace} from './model-trace.js';
@@ -19,11 +18,6 @@ registerRecaptchaAnchor();
 const EXPECTED = [297, 315, 331];
 /* v2.9.3 文本词频通道存储键（已知模型建档的第二条腿：BoW 词频参考库）。 */
 const TEXT_BANK_KEY = 'amp.textbank.v1';
-const NAMES = Object.freeze({
-  'gpt-5.4':'GPT-5.4','gpt-5.5':'GPT-5.5','gpt-5.6-sol':'GPT-5.6 Sol','gpt-5.6-terra':'GPT-5.6 Terra','gpt-5.6-luna':'GPT-5.6 Luna','gpt-6-astra':'GPT-6 Astra','gpt-6-sol':'GPT-6 Sol','gpt-6-luna':'GPT-6 Luna',
-  'claude-haiku-4-5-20251001':'Claude Haiku 4.5','claude-sonnet-4-6':'Claude Sonnet 4.6','claude-sonnet-5':'Claude Sonnet 5','claude-sonnet-5-5':'Claude Sonnet 5.5','claude-opus-4-6':'Claude Opus 4.6','claude-opus-4-7':'Claude Opus 4.7','claude-opus-4-8':'Claude Opus 4.8','claude-opus-5':'Claude Opus 5','claude-opus-5-5':'Claude Opus 5.5','claude-fable-5-1':'Claude Fable 5.1',
-  'kimi-k2.6':'Kimi K2.6','gemini-3.8-flash':'Gemini 3.8 Flash','deepseek-v4-pro-0813':'DeepSeek V4 Pro 0813','qwen3.8-max-0902':'Qwen3.8 Max 0902',
-});
 
 // 每日额度：内存缓存至少 60 秒；Service Worker 被回收后缓存消失，下次读取会重新请求。
 const balance = createBalanceReader({fetch: (...args) => fetch(...args)});
@@ -81,75 +75,53 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     return true;
   }
 
+  /* v2.19.13 查询/在线刷新 lm.ikale.io 指纹库（只接受扩展页或 arena.ai Agent 页顶层框架）。 */
+  if (message?.type === 'AMP_LMFPD_STATUS') {
+    (async () => {
+      const fromExtensionPage = !sender.tab && isExtensionPage(sender.url);
+      if (!fromExtensionPage && (sender.frameId !== 0 || !isAgentUrl(sender.url))) throw Error('指纹库状态请求来源无效');
+      return {ok: true, info: await getLmfpdBankInfo()};
+    })().then(reply, error => reply({ok: false, error: String(error?.message || error)}));
+    return true;
+  }
+
+  if (message?.type === 'AMP_LMFPD_REFRESH') {
+    (async () => {
+      const fromExtensionPage = !sender.tab && isExtensionPage(sender.url);
+      if (!fromExtensionPage && (sender.frameId !== 0 || !isAgentUrl(sender.url))) throw Error('指纹库刷新请求来源无效');
+      return await refreshLmfpdChannel({force: message.force === true});
+    })().then(reply, error => reply({ok: false, error: String(error?.message || error)}));
+    return true;
+  }
+
   if (message?.type !== 'AMP_SCORE') return;
   (async () => {
     if (sender.frameId !== 0 || !Number.isInteger(sender.tab?.id) || !isAgentUrl(sender.url) || !isAgentUrl(message.pageUrl)) throw Error('评分请求来源无效');
     const outputs = cleanOutputs(message.outputs);
     const prepared = prepareOutputs(outputs);
     if (!prepared.usable.length) return {checks: prepared.checks, result: null};
-    const loaded = await loadProbeBank();
-    // v2.9.2 平衡配置：家族层级收缩默认 0.1（可传 shrinkage:0 显式关闭），同时保留 LR 唯一候选集门。
-    const requestedShrinkage = Number(message?.shrinkage);
-    const shrinkage = Number.isFinite(requestedShrinkage) ? Math.min(0.9, Math.max(0, requestedShrinkage)) : DEFAULT_SHRINKAGE;
-    const result = identifyPrepared(prepared, loaded.bank, {shrinkage});
-    const nearest = result.nearest;
-    /* v2.19.11 lmfpd 对照通道：同一批有效回答再过一遍 lm.ikale.io 的 66 模型库，
-       只做旁证展示，不参与 status/改名判定；数据随包内置，失败静默降级为 null。 */
-    const lmfpd = await lmfpdScoreBlock(prepared, result);
-    const price = await priceBlockFor(result);
-    const bankIds = (loaded.bank?.models || []).map(m => m?.id).filter(id => typeof id === 'string');
-    const pricing = await pricingBlockFor(result, {bankIds});
-    /* v2.17.0 价格指纹：指纹识别的候选集（nearest + top3）内，价格能否唯一切开。
-       候选来自识别结果 —— 价格只在识别划定的范围里做裁决，不做全库盲猜。 */
-    const candidateIds = [nearest.id, ...(result.top3 || []).map(item => item.id)].filter((id, index, list) => typeof id === 'string' && list.indexOf(id) === index);
-    const priceFingerprint = await priceFingerprintBlock(candidateIds, {pageUrl: sender.url});
+    const channel = await loadLmfpdChannel();
+    const scoreOutputs = prepared.usable.map(({text, expected_count}) => ({text, expected_count}));
+    const result = identifyWithLmfpd(scoreOutputs, channel);
+    const bankIds = (channel.bank?.models || []).map(m => m?.id).filter(id => typeof id === 'string');
+    const price = result.nearest ? await priceBlockFor(result) : null;
+    const pricing = result.nearest ? await pricingBlockFor(result, {bankIds}) : null;
+    const candidateIds = [result.nearest?.id, ...(result.top3 || []).map(item => item.id)]
+      .filter((id, index, list) => typeof id === 'string' && list.indexOf(id) === index);
+    const priceFingerprint = candidateIds.length ? await priceFingerprintBlock(candidateIds, {pageUrl: sender.url}) : null;
     return {
       checks: prepared.checks,
       result: {
-        status: result.status,
-        reason: result.reason,
-        nearest: {
-          id: nearest.id,
-          display_name: NAMES[nearest.id] || nearest.display_name || nearest.id,
-          family: nearest.family,
-          family_name: nearest.family_name,
-          fit: nearest.fit,
-          probability: nearest.probability,
-        },
-        top3: result.top3,
-        candidates: result.candidates,
-        decision: result.decision,
-        signals: result.signals,
-        used_outputs: result.used_outputs,
-        bank_models: result.bank_models,
-        bank_source: loaded.info.source,
+        ...result,
         price,
         pricing,
         price_fingerprint: priceFingerprint,
-        lmfpd,
-        lmfpd_bank: lmfpd ? 'Fingerpoint Detector（lm.ikale.io）' : null,
+        lmfpd_bank: result.bank_source,
       },
     };
   })().then(reply, error => reply({error: error?.message || '模型指纹评分失败'}));
   return true;
 });
-
-/* v2.19.11 lmfpd 对照通道：把主指纹已判定有效的回答再喂给 Fingerpoint Detector
-   （lm.ikale.io，66 模型库）的 shared-detector-v2 排名器。只产出对照摘要，
-   任何一步失败都返回 null，绝不影响主评分。 */
-async function lmfpdScoreBlock(prepared, primaryResult) {
-  try {
-    if (!prepared?.usable?.length) return null;
-    const channel = await loadLmfpdChannel();
-    const outputs = prepared.usable.map(({text, expected_count}) => ({text, expected_count}));
-    const analysis = analyzeLmfpdOutputs(outputs, channel.bank, channel.detector);
-    const summary = lmfpdSummary(analysis, primaryResult?.nearest || null);
-    return {...summary, built_at: channel.builtAt || null, bank_models: channel.bank?.models?.length || 0};
-  } catch (e) {
-    /* 数据缺失/解码失败时仍回报一行，让浮层能区分“没跑”和“库没加载”，主指纹不受影响。 */
-    return {decision: 'unavailable', error: String(e?.message || e || 'unknown')};
-  }
-}
 
 /* ---------------------------------------------------------------------------
    v2.9.0 网络层直读（D）+ 节奏通道（F）+ 建档层（B）
@@ -168,7 +140,6 @@ const EVIDENCE_CAP = 600;
 const BANK_TARGET_RESPONSES = 120;
 const STREAM_CAP = 40;
 const TRACE_COOLDOWN_MS = 45000;
-const DEFAULT_SHRINKAGE = 0.1;
 
 // 受信任输入调试轨迹改为内存环形缓冲（原实现每步都读写 chrome.storage.local，在点击/键入热路径上产生 10+ 次存储往返）。
 const BTRACE_CAP = 40;
@@ -203,6 +174,7 @@ async function loadCostTable() {
 
 /** 给指纹结果附上成本旁证块（nearest/top3 的成本档位 + 现场成本一致性）。 */
 async function priceBlockFor(result) {
+  if (!result?.nearest?.id) return null;
   try {
     const table = await loadCostTable();
     const observed = observedCostFromSignals(netState.costSignals);
@@ -744,6 +716,7 @@ function observedCostActual() {
 
 /** 给指纹结果附上单价块：候选的价格档位 + 本次用量的期望成本区分度（+ 有实测成本时按价排序 + 全库按价反推）。 */
 async function pricingBlockFor(result, options = {}) {
+  if (!result?.nearest?.id) return null;
   try {
     const table = await loadPricingTable();
     const latestMessageEntry = netState.messageUsage.slice().reverse().find(entry => entry?.usage) || null;
@@ -925,8 +898,8 @@ async function ledgerBlock(options = {}) {
     const reversePair = latestMatchedMessageCostUsage(netState.messageUsage, costPayload);
     if (reversePair) {
       try {
-        const loaded = await loadProbeBank();
-        const bankIds = (loaded?.bank?.models || []).map(m => m?.id).filter(id => typeof id === 'string');
+        const channel = await loadLmfpdChannel();
+        const bankIds = (channel?.bank?.models || []).map(m => m?.id).filter(id => typeof id === 'string');
         if (bankIds.length) {
           const hits = rankByObservedCost(reversePair.base_usd, reversePair.usage, bankIds, table, 6);
           if (hits?.length) {

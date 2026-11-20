@@ -1,3 +1,10 @@
+## 2.19.13
+
+- **全面以 `https://lm.ikale.io/` 最新指纹库为准**：刷新随包内置库至 `2026-11-19` **75 模型**（新增 `gpt-6.2-sol`、`gpt-6.2-astra`、`gemini-4-neon`、`gemini-4-carbon`、`gemini-4-hydrogen`、`claude-fable-5.2`、`muse-ember`、`hy4`、`hy4-flash` 等），并将 `lmfpd`（`shared-detector-v2`）升格为唯一数字指纹主引擎，移除旧 WhatsMyLLM（21 模型）与 ModelTrace（17 模型）主评分及运行时远程请求。
+- **对齐 `lm.ikale.io` 最新判据与 UI 呈现**：同步 `nearby_pair_share <= 0.07` 序列门、异常样本检测（最小值 `>= 200`）、低置信警告阈值（`< 75%`）与 `gpt-6-astra`/`gpt-6.1-sol` 共享底模提示；默认识别模式切回 `quick`（数字指纹 + 默认 `autoTopUp` 自动补满 3 题获取校准置信度）；浮层卡片、折叠条、弹窗、抽卡记录与改名流程全部直接消费 `lm.ikale.io` 结果。
+- **新增插件内「刷新指纹库」按钮**：引入纯 JS Zstandard 解压器 `fzstd.js`（MIT，`fzstd@0.1.1`），支持在页面浮层与工具栏弹窗一键从 `https://lm.ikale.io/data/`（国内镜像 `cdn.jsdmirror.com` 兜底）拉取 `bundle.json` 与 `.zst` 分片、本地解压并校验 SHA-256，持久化到 IndexedDB 后即时热切换生效。
+- `manifest.json` / `package.json`、弹窗与浮层标题、构建标记（`v21913`）升级到 2.19.13；`host_permissions` 与 CSP 增列 `https://lm.ikale.io` 与 `https://cdn.jsdmirror.com`，移除 `https://whatsmyllm.com`。
+
 ## 2.19.12
 
 - **停用对 Arena 的主动探测请求**：规避风控「You opened too many chats in a short time」——`probeCostRoute`（`/api/chat/:id/cost`、`/api/evaluation/:id/cost` 及 PostHog 覆写 cookie 流程）与 `fetchLivePricingTable`（榜单 RSC 实时单价表）不再发起；花费账本如实提示「已停用」，价格/组合证据退化为无账单输入并沿用随包快照价目。页面自身流量仍由嗅探器被动观察，主指纹与 lmfpd 通道不受影响。恢复开关：`content.js` 与 `background.js` 中 `ARENA_API_PROBES` 置 true。

@@ -76,6 +76,8 @@ const document = {
   get activeElement() { return null; },
   cookie: '',
 };
+const sentMessages = [];
+let sendMessageMock = async (msg) => { sentMessages.push(msg); return {}; };
 const sandbox = {
   __ampTestHook: true,
   console, URL, Date, Math, JSON, Number, String, Array, Object, Set, Map, Promise, Error, RegExp, crypto: {randomUUID: () => 'x'},
@@ -91,7 +93,7 @@ const sandbox = {
       getURL: (p) => p, id: 'test', lastError: null,
       getManifest: () => ({permissions: ['storage']}),
       onMessage: {addListener() {}}, onConnect: {addListener() {}},
-      sendMessage: async () => ({}), connect: () => ({onMessage: {addListener() {}}, onDisconnect: {addListener() {}}, postMessage() {}}),
+      sendMessage: (msg) => sendMessageMock(msg), connect: () => ({onMessage: {addListener() {}}, onDisconnect: {addListener() {}}, postMessage() {}}),
     },
     permissions: {contains: async () => true, request: async () => true},
     storage: {local: {get: async () => ({}), set: async () => {}, remove: async () => {}}},
@@ -122,32 +124,30 @@ test('content.js：最小 DOM 下加载无异常（createHud 全路径可跑）'
   assert.equal(loadError, null, loadError && loadError.stack);
 });
 
-test('浮层：Tab 布局 —— 3 个页签挂在 .body 下、文案为数字指纹/价格指纹/花费', () => {
+test('浮层：Tab 布局 —— 2 个页签挂在 .body 下、文案为模型识别/花费', () => {
   const api = ctx.__ampTest;
   assert.ok(api, '测试钩子应已导出（__ampTestHook=true）');
-  assert.deepEqual(Object.keys(api.tabs), ['numeric', 'price', 'cost'], '三个页签 key');
-  assert.equal(api.tabs.price.children[0].textContent, '价格指纹', '页签文案');
+  assert.deepEqual(Object.keys(api.tabs), ['price', 'cost'], '两个页签 key');
+  assert.equal(api.tabs.price.children[0].textContent, '模型识别', '页签文案');
+  assert.equal(api.tabs.cost.children[0].textContent, '花费', '页签文案');
   const bar = findIn(findIn(created.map(n => n._shadow).find(Boolean), '.box'), '.tabs');
   assert.ok(bar, '.body 下应有 .tabs 容器');
-  assert.equal(bar.children.length, 3, '.tabs 应有 3 个按钮');
+  assert.equal(bar.children.length, 2, '.tabs 应有 2 个按钮');
 });
 
-test('浮层：三个面板共用一个 .body 滚动区，价格面板带 price-panel 类', () => {
+test('浮层：两个面板共用一个 .body 滚动区，识别面板内嵌 price-panel', () => {
   const api = ctx.__ampTest;
-  assert.deepEqual(Object.keys(api.panels), ['numeric', 'price', 'cost'], '三个面板');
-  assert.ok(api.panels.price.classList.contains('price-panel'), '价格面板标记 price-panel');
+  assert.deepEqual(Object.keys(api.panels), ['price', 'cost'], '两个面板');
+  assert.ok(findIn(api.panels.price, '.price-panel'), '识别面板内含 price-panel');
   const shadow = created.map(n => n._shadow).find(Boolean);
   const body = findIn(findIn(shadow, '.box'), '.body');
   const direct = body.children.filter(c => c.classList?.contains('panel'));
-  assert.equal(direct.length, 3, '.body 直接子代应有 3 个面板');
+  assert.equal(direct.length, 2, '.body 直接子代应有 2 个面板');
 });
 
-test('浮层：轨迹直读不再作为独立卡片（并入数字指纹面板）', () => {
+test('浮层：轨迹直读不再作为独立卡片（并入数字结果区）', () => {
   const api = ctx.__ampTest;
   const shadow = created.map(n => n._shadow).find(Boolean);
-  const numeric = api.panels.numeric;
-  /* trace 节点必须在数字面板内，而不是独立挂在 body 下。 */
-  assert.ok(!findIn(api.panels.price, '.trace'), '价格面板不含轨迹节点');
   assert.ok(!findIn(api.panels.cost, '.trace'), '花费面板不含轨迹节点');
   assert.equal(findIn(shadow, '.box div.body > .trace'), null, '轨迹不再是 body 的直接子卡片');
 });
@@ -355,12 +355,12 @@ test('content.js：候选列表样式与字段消费（源码级）', () => {
 test('浮层：createHud() 建完 DOM 后即点亮默认页签（首个面板 active）', () => {
   const api = ctx.__ampTest;
   /* ★ 真机回归：此前只有 loadLocalState() 读到存储值才 selectTab()，
-     存储为空（首次安装）时三个 .panel 全是 display:none，用户看到空白浮层。
+     存储为空（首次安装）时面板全是 display:none，用户看到空白浮层。
      断言：不依赖任何存储恢复，createHud() 后必须恰好有一个面板带 .active。 */
   const active = Object.entries(api.panels).filter(([, p]) => p.classList.contains('active'));
   assert.equal(active.length, 1, `createHud() 后应有且仅有 1 个 active 面板，实际 ${active.length}`);
-  assert.equal(active[0][0], 'numeric', '默认页签是数字指纹');
-  assert.ok(api.tabs.numeric.classList.contains('active'), '默认页签按钮也高亮');
+  assert.equal(active[0][0], 'price', '默认页签是模型识别');
+  assert.ok(api.tabs.price.classList.contains('active'), '默认页签按钮也高亮');
 });
 
 test('浮层：默认页签点亮不写存储（不污染「恢复上次页签」）', () => {
@@ -399,4 +399,105 @@ test('浮层：没有费率族时标题仍是「未唯一定名」（不假装�
   api.renderPricePanel();
   assert.equal(api.panels.price.querySelector('.fp-name').textContent, '未唯一定名');
   assert.equal(api.panels.price.querySelector('.fp-badge').textContent, '不能定名');
+});
+
+/* ---------- v2.19.13 lm.ikale.io 主指纹引擎与在线一键刷新 ---------- */
+
+test('浮层：存在 lm.ikale.io 指纹库状态栏，点击「刷新指纹库」发送 AMP_LMFPD_REFRESH 并更新状态', async () => {
+  const api = ctx.__ampTest;
+  assert.ok(api.lmfpdBarText, '指纹库状态文本节点存在');
+  assert.ok(api.lmfpdRefreshButton, '刷新指纹库按钮存在');
+  assert.equal(api.lmfpdRefreshButton.textContent, '刷新指纹库');
+  sentMessages.length = 0;
+  sendMessageMock = async (msg) => {
+    sentMessages.push(msg);
+    if (msg?.type === 'AMP_LMFPD_REFRESH') {
+      return {
+        ok: true, updated: true, up_to_date: false, persisted: true,
+        info: {models: 75, built_at: '2026-11-19T05:26:09+00:00', origin: 'remote'},
+      };
+    }
+    return {};
+  };
+  api.lmfpdRefreshButton.dispatch('click');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  api.renderHud();
+  assert.ok(sentMessages.some(m => m?.type === 'AMP_LMFPD_REFRESH'), '应发送 AMP_LMFPD_REFRESH');
+  assert.match(api.lmfpdBarText.textContent, /75 模型.*2026-11-19.*在线缓存/);
+  assert.match(api.lmfpdBarText.textContent, /已更新至 75 模型/);
+});
+
+test('浮层：结果卡片全面以 lm.ikale.io 为准（高置信 / 低置信 / 非模型 / 异常样本）', () => {
+  const api = ctx.__ampTest;
+  const sid = api.session();
+  assert.equal(sid, 'test-12345678');
+
+  api.records.set(sid, {
+    samples: [{probeIndex: 0}, {probeIndex: 1}, {probeIndex: 2}],
+    result: {
+      status: 'clear', decision: 'scored', used_outputs: 3, bank_models: 75,
+      bank_source: 'Fingerpoint Detector（lm.ikale.io）', bank_built_at: '2026-11-19T05:26:09+00:00', bank_origin: 'bundled',
+      nearest: {id: 'gpt-6.2-sol', display_name: 'gpt-6.2-sol', family: 'gpt', family_name: 'GPT', score: 2.34, probability: 0.912},
+      top3: [{id: 'gpt-6.2-sol', display_name: 'gpt-6.2-sol', probability: 0.912}, {id: 'gpt-6-sol', display_name: 'gpt-6-sol', probability: 0.05}],
+      signals: {probability: 0.912, family_probability: 0.97, score: 2.34, evidence_numbers: 940, anomalous_samples: [], low_confidence: false, shared_base_note: ''},
+    },
+  });
+  api.renderHud();
+  assert.equal(api.resultNode.hidden, false);
+  assert.equal(api.resultModel.textContent, 'gpt-6.2-sol');
+  assert.equal(api.resultBadge.textContent, '已校准');
+  assert.match(api.resultMetrics.textContent, /置信 91\.2%（库内相对）/);
+  assert.match(api.resultBank.textContent, /lm\.ikale\.io · 75 模型（2026-11-19 · 内置）/);
+  assert.equal(api.resultLmfpd.hidden, true);
+
+  api.records.set(sid, {
+    samples: [{probeIndex: 0}, {probeIndex: 1}, {probeIndex: 2}],
+    result: {
+      status: 'close', decision: 'scored', used_outputs: 3, bank_models: 75,
+      bank_source: 'Fingerpoint Detector（lm.ikale.io）', bank_built_at: '2026-11-19T05:26:09+00:00', bank_origin: 'remote',
+      nearest: {id: 'gpt-6-astra', display_name: 'gpt-6-astra/6.1-sol', family: 'gpt', family_name: 'GPT', score: 1.1, probability: 0.52},
+      top3: [{id: 'gpt-6-astra', display_name: 'gpt-6-astra/6.1-sol', probability: 0.52}],
+      signals: {probability: 0.52, family_probability: 0.85, score: 1.1, evidence_numbers: 900, anomalous_samples: [1], low_confidence: true, shared_base_note: 'lm.ikale.io 无法通过数字指纹区分 gpt-6-astra 与 gpt-6.1-sol（共享底模）'},
+    },
+  });
+  api.renderHud();
+  assert.equal(api.resultBadge.textContent, '样本异常');
+  assert.equal(api.resultLmfpd.hidden, false);
+  assert.match(api.resultLmfpd.textContent, /样本 2 分布异常/);
+  assert.match(api.resultLmfpd.textContent, /置信度不足（<75%）/);
+  assert.match(api.resultLmfpd.textContent, /gpt-6-astra/);
+
+  api.records.set(sid, {
+    samples: [{probeIndex: 0}],
+    result: {
+      status: 'close', decision: 'partial', used_outputs: 1, bank_models: 75,
+      bank_source: 'Fingerpoint Detector（lm.ikale.io）', bank_built_at: '2026-11-19T05:26:09+00:00', bank_origin: 'bundled',
+      nearest: {id: 'claude-fable-5.2', display_name: 'claude-fable-5.2', family: 'claude', family_name: 'Claude', score: 1.85, probability: null},
+      top3: [{id: 'claude-fable-5.2', display_name: 'claude-fable-5.2', score: 1.85, probability: null}],
+      signals: {probability: null, family_probability: null, score: 1.85, evidence_numbers: 297, anomalous_samples: [], low_confidence: false, shared_base_note: '', evidence: {reason: '使用 1/3 条有效回答生成排名'}},
+    },
+  });
+  api.renderHud();
+  assert.equal(api.resultModel.textContent, 'claude-fable-5.2（部分样本 1/3）');
+  assert.equal(api.resultBadge.textContent, '部分样本');
+  assert.match(api.resultMetrics.textContent, /部分样本 1\/3/);
+  assert.match(api.resultMetrics.textContent, /分数 1\.850/);
+  assert.doesNotMatch(api.resultMetrics.textContent, /置信 0\.0%|家族 0\.0%/);
+
+  api.records.set(sid, {
+    samples: [{probeIndex: 0}],
+    result: {
+      status: 'weak', decision: 'not_model', used_outputs: 1, bank_models: 75,
+      bank_source: 'Fingerpoint Detector（lm.ikale.io）', bank_built_at: '2026-11-19T05:26:09+00:00', bank_origin: 'bundled',
+      nearest: null, top3: [],
+      signals: {probability: null, family_probability: null, score: null, evidence_numbers: 297, anomalous_samples: [], low_confidence: false, shared_base_note: '', evidence: {reason: '相邻数字的变化方式与参考库中的语言模型回答不同'}},
+    },
+  });
+  api.renderHud();
+  assert.equal(api.resultModel.textContent, '不像语言模型回答');
+  assert.equal(api.resultBadge.textContent, '非模型序列');
+  assert.match(api.resultMetrics.textContent, /置信度 暂不可用/);
+  assert.doesNotMatch(api.resultMetrics.textContent, /置信 0\.0%|家族 0\.0%|分数 0\.000/);
+  assert.equal(api.resultLmfpd.hidden, false);
+  assert.match(api.resultLmfpd.textContent, /相邻数字的变化方式/);
 });

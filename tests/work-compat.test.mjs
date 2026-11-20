@@ -47,12 +47,16 @@ test('rename helper recognizes both session paths',()=>{
 });
 test('manifest injects into both route families; popup accepts both',()=>{
  const m=JSON.parse(read('manifest.json'));
- // v2.15.0：manifest 用整站通配（不再枚举 /work*、/agent*），且必须同时覆盖 canary 预发布域。
- for(const cs of m.content_scripts){
+ // v2.15.0：manifest 用整站通配（不再枚举 /work*、/agent*），且必须同时覆盖 canary 预发布域（排除 Buster 的 recaptcha content_scripts）。
+ const arenaScripts=m.content_scripts.filter(cs=>!(cs.matches||[]).some(u=>/recaptcha/i.test(u)));
+ assert.ok(arenaScripts.length>=2);
+ for(const cs of arenaScripts){
   assert.ok(cs.matches.includes('https://arena.ai/*'));
   assert.ok(cs.matches.includes('https://canary.arena.ai/*'));
  }
  assert.ok(m.host_permissions.includes('https://canary.arena.ai/*'));
+ assert.ok(m.host_permissions.includes('https://lm.ikale.io/*'));
+ assert.ok(m.host_permissions.includes('https://cdn.jsdmirror.com/*'));
  const src=read('popup.js').split('\n');
  const originLine=src.find(x=>x.startsWith('const ARENA_ORIGIN_RE='));
  const line=src.find(x=>x.startsWith('function agentUrl('));

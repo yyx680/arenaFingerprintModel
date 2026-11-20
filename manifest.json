@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Vodka-Arena-Model",
-  "version": "2.19.12",
+  "version": "2.19.13",
   "author": "Vodka",
-  "description": "Arena 模型识别工具：支持价格指纹、数字指纹与组合排序，提供会话账单、可选按最接近候选改名、连续抽卡和每日额度查询。",
+  "description": "Arena 模型识别工具：基于 lm.ikale.io 指纹库（支持在线一键刷新）识别模型，并提供价格指纹、连续抽卡与每日额度查询。",
   "minimum_chrome_version": "123",
   "permissions": [
     "activeTab",
@@ -22,6 +22,8 @@
     "https://arena.ai/*",
     "https://canary.arena.ai/*",
     "https://api.trigger.dev/*",
+    "https://lm.ikale.io/*",
+    "https://cdn.jsdmirror.com/*",
     "https://google.com/*",
     "https://www.google.com/*",
     "https://recaptcha.net/*",
@@ -40,7 +42,7 @@
     "type": "module"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; object-src 'self'; connect-src 'self' https://whatsmyllm.com https://arena.ai https://canary.arena.ai https://api.trigger.dev https://google.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://speech.googleapis.com https://api.wit.ai https://*.stt.speech.microsoft.com https://iam.cloud.ibm.com https://*.speech-to-text.watson.cloud.ibm.com wss://*.speech-to-text.watson.cloud.ibm.com"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; object-src 'self'; connect-src 'self' https://lm.ikale.io https://cdn.jsdmirror.com https://arena.ai https://canary.arena.ai https://api.trigger.dev https://google.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://speech.googleapis.com https://api.wit.ai https://*.stt.speech.microsoft.com https://iam.cloud.ibm.com https://*.speech-to-text.watson.cloud.ibm.com wss://*.speech-to-text.watson.cloud.ibm.com"
   },
   "action": {
     "default_popup": "popup.html",

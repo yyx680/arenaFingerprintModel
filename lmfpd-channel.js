@@ -1,9 +1,24 @@
-/* lmfpd 第二指纹通道（对照用，不参与主指纹的 status/改名判定）。
-   评分核移植自 lmfpd-sdk 0.2.0（MIT，https://github.com/Ikaleio/lm-detector ，
-   shared-detector-v2 ranker）；hellingerFeature / orderedBlockFeature /
-   parseNumbers / countNumbers 与 modeltrace-core.js 同源同实现，直接复用。
-   参考数据随包内置在 lmfpd-data/（tools/fetch-lmfpd-data.mjs 刷新），运行时不走网络。 */
+/* lm.ikale.io（Fingerpoint Detector / lmfpd）主数字指纹引擎。
+   评分核移植自 lmfpd-sdk（MIT，https://github.com/Ikaleio/lm-detector ，
+   shared-detector-v2 ranker + nearby_pair_share 序列门）；
+   hellingerFeature / orderedBlockFeature / parseNumbers / countNumbers 与 modeltrace-core.js 同源同实现。
+   参考数据随包内置在 lmfpd-data/（tools/fetch-lmfpd-data.mjs 刷新），并支持插件内在线一键刷新并持久化到 IndexedDB。 */
 import {parseNumbers, countNumbers, hellingerFeature, orderedBlockFeature} from './modeltrace-core.js';
+import {decompress as zstdDecompress} from './fzstd.js';
+
+export const LMFPD_LOW_CONFIDENCE_THRESHOLD = 0.75;
+export const LMFPD_ASTRA_SHARED_ID = 'gpt-6-astra';
+export const LMFPD_SOURCES = Object.freeze([
+  'https://lm.ikale.io/data/',
+  'https://cdn.jsdmirror.com/npm/lmfpd-data@latest/',
+]);
+
+const DB_NAME = 'amp-lmfpd-cache-v1';
+const DB_VERSION = 1;
+const STORE_NAME = 'snapshots';
+const SNAPSHOT_KEY = 'latest';
+const MAX_PACKED_BYTES = 25 * 1024 * 1024;
+const MAX_DETECTOR_BYTES = 32 * 1024 * 1024;
 
 /* ---------- 序列/位置特征（上游 shared-detector.ts + positional 头） ---------- */
 
@@ -157,7 +172,19 @@ function rankSharedNumbers(numbers, artifact) {
   return ranking;
 }
 
-const SEQUENCE_LIMITS = {autocorrelation: -0.23, small_step_share: 0.05};
+const SEQUENCE_LIMITS = {autocorrelation: -0.23, small_step_share: 0.05, nearby_pair_share: 0.07};
+
+function nearbyPairShare(numbers) {
+  let hits = 0;
+  let total = 0;
+  for (let lag = 1; lag <= 3; lag += 1) {
+    for (let i = lag; i < numbers.length; i += 1) {
+      if (Math.abs(numbers[i] - numbers[i - lag]) <= 20) hits += 1;
+      total += 1;
+    }
+  }
+  return total ? hits / total : 1;
+}
 
 function sequenceShape(numbers) {
   const shapes = numbers.map(n => {
@@ -167,18 +194,34 @@ function sequenceShape(numbers) {
       small_step_share: mean2(steps.map(d => Math.abs(d) <= 20 ? 1 : 0)),
     };
   });
-  const autocorrelation = median(shapes.map(s => s.autocorrelation)), small_step_share = median(shapes.map(s => s.small_step_share));
+  const autocorrelation = median(shapes.map(s => s.autocorrelation));
+  const small_step_share = median(shapes.map(s => s.small_step_share));
+  const nearby_pair_share = median(numbers.map(nearbyPairShare));
   return {
     autocorrelation,
     small_step_share,
-    model_like: autocorrelation <= SEQUENCE_LIMITS.autocorrelation || small_step_share <= SEQUENCE_LIMITS.small_step_share,
+    nearby_pair_share,
+    model_like: autocorrelation <= SEQUENCE_LIMITS.autocorrelation ||
+      small_step_share <= SEQUENCE_LIMITS.small_step_share ||
+      nearby_pair_share <= SEQUENCE_LIMITS.nearby_pair_share,
   };
 }
 
 const minimumNumbers = expected => Math.max(80, Math.ceil(expected * 0.55));
 
-/* 上游 analyzeSharedOutputs 原样移植（allowPartial 分支保留；证据文案本来就是中文，
-   不走 SDK 的 englishAnalysis 英文包装）。 */
+/** 与 lm.ikale.io 前端 ru() 一致：检查有效样本中是否存在最小值 >= 200 的异常分布。 */
+export function detectAnomalousSamples(outputs, diagnostics) {
+  const anomalous = [];
+  if (!Array.isArray(outputs)) return anomalous;
+  for (let i = 0; i < outputs.length; i += 1) {
+    if (diagnostics && !diagnostics[i]?.accepted) continue;
+    const nums = parseNumbers(outputs[i]?.text || '');
+    if (nums.length && Math.min(...nums) >= 200) anomalous.push(i);
+  }
+  return anomalous;
+}
+
+/* 上游 analyzeSharedOutputs 原样移植（allowPartial 分支保留；证据文案本来就是中文）。 */
 function analyzeSharedOutputs(outputs, bank, artifact, options = {}) {
   if (!lmfpdBankMatches(bank, artifact)) throw new Error('参考库与检测器不匹配');
   const parsed = outputs.map(o => parseNumbers(o.text));
@@ -341,36 +384,309 @@ export function decodeLmfpdDetector(data) {
     value && typeof value === 'object' && ('$f32' in value) ? Array.from(floats.subarray(value.$f32, value.$f32 + value.n)) : value);
 }
 
-/* ---------- 数据加载：随包内置，SW 内一次性 fetch + Promise 缓存 ---------- */
+/* ---------- 校验、SHA-256 与 IndexedDB 缓存 ---------- */
+
+export function validateBundleMeta(bundle) {
+  if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) throw new Error('参考库清单格式无效');
+  if (bundle.schema !== 'lmfpd-data-v1' || bundle.detector_schema !== 'shared-detector-v2') {
+    throw new Error(`不支持的参考库格式：${bundle.schema}/${bundle.detector_schema}`);
+  }
+  if (!Array.isArray(bundle.models) || bundle.models.length < 2 || bundle.models.length > 500) {
+    throw new Error('参考库模型列表无效');
+  }
+  const file = bundle.files?.['shared_detector.bin'];
+  if (!file || !Array.isArray(file.parts) || file.parts.length < 1 || file.parts.length > 32) {
+    throw new Error('参考库分片清单缺失');
+  }
+  for (const part of file.parts) {
+    if (typeof part !== 'string' || !/^[a-zA-Z0-9._-]+\.zst$/.test(part)) {
+      throw new Error(`非法的分片文件名：${String(part)}`);
+    }
+  }
+  if (typeof file.sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(file.sha256)) {
+    throw new Error('参考库 SHA-256 格式无效');
+  }
+  if (!Number.isFinite(file.bytes) || file.bytes <= 0 || file.bytes > MAX_PACKED_BYTES) {
+    throw new Error('参考库大小超出限制');
+  }
+  return {bundle, file};
+}
+
+export async function sha256Hex(bytes) {
+  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const digest = await crypto.subtle.digest('SHA-256', input);
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function openSnapshotDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  return new Promise(resolve => {
+    try {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, {keyPath: 'id'});
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+      request.onblocked = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function readCachedSnapshot() {
+  const db = await openSnapshotDb();
+  if (!db) return null;
+  try {
+    return await new Promise(resolve => {
+      try {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).get(SNAPSHOT_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  } finally {
+    try { db.close(); } catch {}
+  }
+}
+
+async function writeCachedSnapshot(record) {
+  const db = await openSnapshotDb();
+  if (!db) return false;
+  try {
+    return await new Promise(resolve => {
+      try {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put({id: SNAPSHOT_KEY, ...record});
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+        tx.onabort = () => resolve(false);
+      } catch {
+        resolve(false);
+      }
+    });
+  } finally {
+    try { db.close(); } catch {}
+  }
+}
+
+function formatBankInfo(channel) {
+  return {
+    models: channel?.bank?.models?.length || 0,
+    built_at: channel?.builtAt || null,
+    sha256: channel?.sha256 || null,
+    origin: channel?.origin || 'bundled',
+    source: channel?.source || null,
+    fetched_at: channel?.fetchedAt || null,
+  };
+}
+
+/* ---------- 数据加载与在线一键刷新 ---------- */
 
 let channelPromise = null;
+let refreshPromise = null;
+
+async function tryLoadCached(bundledBuiltAt) {
+  try {
+    const cached = await readCachedSnapshot();
+    if (!cached?.bank || !cached?.detectorBytes) return null;
+    const {file} = validateBundleMeta(cached.bank);
+    const expectedSha = file.sha256.toLowerCase();
+    const cachedTime = Date.parse(cached.bank.built_at || '');
+    const bundledTime = Date.parse(bundledBuiltAt || '');
+    if (!Number.isFinite(cachedTime) || (Number.isFinite(bundledTime) && cachedTime <= bundledTime)) return null;
+    const bytes = cached.detectorBytes instanceof Uint8Array
+      ? cached.detectorBytes
+      : new Uint8Array(cached.detectorBytes);
+    if ((await sha256Hex(bytes)) !== expectedSha) return null;
+    const detector = decodeLmfpdDetector(bytes);
+    if (!lmfpdBankMatches(cached.bank, detector)) return null;
+    return {
+      bank: cached.bank,
+      detector,
+      builtAt: cached.bank.built_at,
+      sha256: expectedSha,
+      origin: 'remote',
+      source: cached.source || null,
+      fetchedAt: cached.fetchedAt || null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function loadLmfpdChannel() {
   if (channelPromise) return channelPromise;
   channelPromise = (async () => {
     const bankUrl = chrome.runtime.getURL('lmfpd-data/unified_bank.json');
     const binUrl = chrome.runtime.getURL('lmfpd-data/shared_detector.bin');
-    const [bankResponse, binResponse] = await Promise.all([fetch(bankUrl), fetch(binUrl)]);
-    if (!bankResponse.ok || !binResponse.ok) throw new Error(`lmfpd 数据读取失败 HTTP ${bankResponse.status}/${binResponse.status}`);
-    const bank = await bankResponse.json();
-    const detector = decodeLmfpdDetector(new Uint8Array(await binResponse.arrayBuffer()));
-    if (!lmfpdBankMatches(bank, detector)) throw new Error('lmfpd 参考库与检测器不匹配');
-    return {bank, detector, builtAt: bank.built_at};
+    const bankResponse = await fetch(bankUrl);
+    if (!bankResponse.ok) throw new Error(`lmfpd 数据读取失败 HTTP ${bankResponse.status}`);
+    const bundledBank = await bankResponse.json();
+    const {file: bundledFile} = validateBundleMeta(bundledBank);
+    const bundledSha = bundledFile.sha256.toLowerCase();
+
+    const cachedChannel = await tryLoadCached(bundledBank.built_at);
+    if (cachedChannel) return cachedChannel;
+
+    const binResponse = await fetch(binUrl);
+    if (!binResponse.ok) throw new Error(`lmfpd 检测器读取失败 HTTP ${binResponse.status}`);
+    const detectorBytes = new Uint8Array(await binResponse.arrayBuffer());
+    const digest = await sha256Hex(detectorBytes);
+    if (digest !== bundledSha) throw new Error('内置 lmfpd 检测器 SHA-256 校验失败');
+    const detector = decodeLmfpdDetector(detectorBytes);
+    if (!lmfpdBankMatches(bundledBank, detector)) throw new Error('lmfpd 参考库与检测器不匹配');
+    return {
+      bank: bundledBank,
+      detector,
+      builtAt: bundledBank.built_at,
+      sha256: bundledSha,
+      origin: 'bundled',
+      source: 'bundled',
+      fetchedAt: null,
+    };
   })();
   channelPromise.catch(() => { channelPromise = null; });
   return channelPromise;
 }
 
-/* ---------- 与主指纹结果的对照摘要 ---------- */
+export async function getLmfpdBankInfo() {
+  const channel = await loadLmfpdChannel();
+  return formatBankInfo(channel);
+}
+
+async function fetchBytes(fetchImpl, url, timeoutMs) {
+  const response = await fetchImpl(url, {
+    method: 'GET',
+    credentials: 'omit',
+    cache: 'no-store',
+    referrerPolicy: 'no-referrer',
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status} (${url})`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function performRefresh(options = {}) {
+  const fetchImpl = options.fetchImpl || fetch;
+  const sources = Array.isArray(options.sources) && options.sources.length ? options.sources : LMFPD_SOURCES;
+  const persist = options.persist !== undefined ? options.persist : writeCachedSnapshot;
+  const current = options.current !== undefined ? options.current : await loadLmfpdChannel().catch(() => null);
+  const updateCache = options.updateCache !== undefined ? options.updateCache : !options.fetchImpl;
+  const failures = [];
+
+  for (const source of sources) {
+    try {
+      const bundleBytes = await fetchBytes(fetchImpl, `${source}bundle.json`, 15000);
+      const bundle = JSON.parse(new TextDecoder().decode(bundleBytes));
+      const {file} = validateBundleMeta(bundle);
+      const expectedSha = file.sha256.toLowerCase();
+
+      if (!options.force && current && current.sha256 === expectedSha && current.builtAt === bundle.built_at) {
+        return {
+          ok: true,
+          updated: false,
+          up_to_date: true,
+          info: formatBankInfo(current),
+          source,
+        };
+      }
+
+      const chunks = [];
+      let totalBytes = 0;
+      for (const part of file.parts) {
+        const chunk = await fetchBytes(fetchImpl, `${source}chunks/${part}`, 90000);
+        totalBytes += chunk.length;
+        if (totalBytes > MAX_PACKED_BYTES) throw new Error('远端分片总大小超出限制');
+        chunks.push(chunk);
+      }
+
+      const packed = new Uint8Array(totalBytes);
+      let offset = 0;
+      for (const chunk of chunks) {
+        packed.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const detectorBytes = zstdDecompress(packed);
+      if (!(detectorBytes instanceof Uint8Array) || detectorBytes.length === 0 || detectorBytes.length > MAX_DETECTOR_BYTES) {
+        throw new Error('zstd 解压后的检测器大小异常');
+      }
+      const digest = await sha256Hex(detectorBytes);
+      if (digest !== expectedSha) {
+        throw new Error(`SHA-256 校验失败：${digest.slice(0, 12)} != ${expectedSha.slice(0, 12)}`);
+      }
+      const detector = decodeLmfpdDetector(detectorBytes);
+      if (!lmfpdBankMatches(bundle, detector)) throw new Error('远端参考库与检测器不匹配');
+
+      const fetchedAt = new Date().toISOString();
+      let persisted = false;
+      if (typeof persist === 'function') {
+        try {
+          persisted = !!(await persist({
+            bank: bundle,
+            detectorBytes,
+            sha256: expectedSha,
+            builtAt: bundle.built_at,
+            fetchedAt,
+            source,
+          }));
+        } catch {
+          persisted = false;
+        }
+      }
+
+      const nextChannel = {
+        bank: bundle,
+        detector,
+        builtAt: bundle.built_at,
+        sha256: expectedSha,
+        origin: 'remote',
+        source,
+        fetchedAt,
+      };
+      if (updateCache) channelPromise = Promise.resolve(nextChannel);
+
+      return {
+        ok: true,
+        updated: true,
+        up_to_date: false,
+        previous_models: current?.bank?.models?.length || 0,
+        previous_built_at: current?.builtAt || null,
+        info: formatBankInfo(nextChannel),
+        persisted,
+        source,
+      };
+    } catch (error) {
+      failures.push(`${source}: ${error?.message || error}`);
+    }
+  }
+  throw new Error(`拉取 lm.ikale.io 指纹库失败（${failures.join('；')}）`);
+}
+
+export function refreshLmfpdChannel(options = {}) {
+  const customRun = Boolean(options.fetchImpl || options.sources || options.persist !== undefined || options.current !== undefined);
+  if (customRun) return performRefresh(options);
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = performRefresh(options).finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
+/* ---------- 摘要与主识别入口（以 lm.ikale.io 为准） ---------- */
 
 const normModelId = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-/** 把 lmfpd 分析压缩成浮层一行展示用的对象；agreement 对比主指纹最近候选。 */
-export function lmfpdSummary(analysis, primary) {
+/** 把 lmfpd 分析压缩成摘要对象；提供 primary 时附带一致性对比，未提供则为主引擎输出。 */
+export function lmfpdSummary(analysis, primary = null) {
   const top = analysis?.results?.[0] || null;
-  let agreement = '无有效排名';
+  let agreement = primary ? '无有效排名' : '';
   if (analysis?.decision === 'not_model') agreement = 'lmfpd 判非模型序列';
-  else if (top) {
+  else if (top && primary) {
     if (normModelId(top.model) === normModelId(primary?.id)) agreement = 'lmfpd 一致';
     else if (normModelId(top.family) === normModelId(primary?.family)) agreement = 'lmfpd 同族';
     else agreement = 'lmfpd 不一致';
@@ -389,5 +705,97 @@ export function lmfpdSummary(analysis, primary) {
       score: item.score, probability: item.probability,
     })),
     agreement,
+  };
+}
+
+/** 主数字指纹识别入口：全部状态、候选排序、概率与诊断均以 lm.ikale.io 为准。 */
+export function identifyWithLmfpd(outputs, channel) {
+  if (!channel?.bank || !channel?.detector) throw new Error('lmfpd 指纹库尚未加载');
+  const analysis = analyzeLmfpdOutputs(outputs, channel.bank, channel.detector);
+  const anomalousSamples = detectAnomalousSamples(outputs, analysis.diagnostics);
+  const candidates = (analysis.results || []).map(item => ({
+    id: item.model,
+    display_name: item.display_name,
+    family: item.family,
+    family_name: item.family_name,
+    score: item.score,
+    probability: item.probability,
+  }));
+  const nearest = candidates[0] || null;
+  const top3 = candidates.slice(0, 3);
+  const scoreGap = candidates.length > 1 ? candidates[0].score - candidates[1].score : null;
+  const familyProbability = nearest && analysis.probability_status === 'reference_calibrated'
+    ? candidates.filter(item => item.family === nearest.family).reduce((sum, item) => sum + (item.probability || 0), 0)
+    : null;
+  const evidenceNumbers = (analysis.diagnostics || [])
+    .filter(item => item.accepted)
+    .reduce((sum, item) => sum + (Number(item.parsed_numbers) || 0), 0);
+  const probability = Number.isFinite(analysis.probability) ? analysis.probability : null;
+  const lowConfidence = analysis.decision === 'scored' && probability !== null && probability < LMFPD_LOW_CONFIDENCE_THRESHOLD;
+  const sharedBaseNote = nearest?.id === LMFPD_ASTRA_SHARED_ID
+    ? 'lm.ikale.io 无法通过数字指纹区分 gpt-6-astra 与 gpt-6.1-sol（共享底模），建议结合其它特征进一步辨认。'
+    : '';
+
+  let status;
+  let reason;
+  if (analysis.decision === 'scored' && probability !== null && probability >= LMFPD_LOW_CONFIDENCE_THRESHOLD && !anomalousSamples.length) {
+    status = 'clear';
+    reason = 'lmfpd_calibrated_confident';
+  } else if (analysis.decision === 'scored') {
+    status = 'close';
+    reason = anomalousSamples.length
+      ? 'lmfpd_anomalous_samples'
+      : (probability !== null ? 'lmfpd_low_confidence' : 'lmfpd_uncalibrated');
+  } else if (analysis.decision === 'partial') {
+    status = 'close';
+    reason = 'lmfpd_partial_samples';
+  } else if (analysis.decision === 'not_model') {
+    status = 'weak';
+    reason = 'lmfpd_not_model';
+  } else {
+    status = 'weak';
+    reason = 'lmfpd_unscorable';
+  }
+
+  const lmfpd = {
+    ...lmfpdSummary(analysis),
+    built_at: channel.builtAt || null,
+    bank_models: channel.bank.models.length,
+    sha256: channel.sha256 || null,
+    origin: channel.origin || 'bundled',
+    anomalous_samples: anomalousSamples,
+    low_confidence: lowConfidence,
+    shared_base_note: sharedBaseNote,
+  };
+
+  return {
+    status,
+    reason,
+    decision: analysis.decision,
+    nearest,
+    top3,
+    candidates,
+    signals: {
+      probability,
+      probability_status: analysis.probability_status,
+      score: nearest ? nearest.score : null,
+      score_gap: scoreGap,
+      family_probability: familyProbability,
+      query_count: analysis.used_outputs,
+      evidence_numbers: evidenceNumbers,
+      sequence: analysis.sequence,
+      anomalous_samples: anomalousSamples,
+      low_confidence: lowConfidence,
+      shared_base_note: sharedBaseNote,
+      evidence: analysis.evidence,
+    },
+    used_outputs: analysis.used_outputs,
+    bank_models: channel.bank.models.length,
+    bank_source: 'Fingerpoint Detector（lm.ikale.io）',
+    bank_built_at: channel.builtAt || null,
+    bank_origin: channel.origin || 'bundled',
+    bank_sha256: channel.sha256 || null,
+    calibration: analysis.calibration || null,
+    lmfpd,
   };
 }
